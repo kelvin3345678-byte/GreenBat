@@ -41,6 +41,12 @@
         .dash-box { padding: 10px; border-radius: 8px; text-align: center; }
         .dash-title { font-size: 12px; color: #666; display: block; margin-bottom: 5px; }
         .dash-value { font-size: 20px; font-weight: bold; }
+
+        /* 💡 新增：用餐人數按鈕排版 */
+        .pax-control { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+        .pax-control input { margin: 0; text-align: center; flex: 1; font-weight: bold; font-size: 18px;}
+        .pax-btn { background: #e5e5ea; border: none; font-size: 22px; font-weight: bold; border-radius: 8px; width: 45px; height: 45px; cursor: pointer; color: var(--primary); display: flex; align-items: center; justify-content: center;}
+        .pax-btn:active { background: #d1d1d6; }
     </style>
 </head>
 <body>
@@ -64,8 +70,14 @@
                 <option value="4">第 4 桌</option>
                 <option value="5">第 5 桌</option>
             </select>
+            
             <label>用餐人數：</label>
-            <input type="number" id="pax-input" placeholder="輸入人數" value="2" onchange="saveTableData()">
+            <!-- 💡 新增：可加減的人數按鈕區塊 -->
+            <div class="pax-control">
+                <button class="pax-btn" onclick="changePax(-1)">-</button>
+                <input type="number" id="pax-input" placeholder="人數" value="2" onchange="saveTableData()">
+                <button class="pax-btn" onclick="changePax(1)">+</button>
+            </div>
         </div>
 
         <div class="card">
@@ -95,8 +107,8 @@
 
             <div style="margin-top: 25px; border-top: 2px dashed #ccc; padding-top: 15px;">
                 <h4 style="margin-top: 0; color: #666;">👇 吃飽離場結帳區</h4>
-                <button class="btn btn-blue" onclick="checkout('現金')">💵 現金結帳並清空座位</button>
-                <button class="btn btn-green" onclick="checkout('LINE Pay')">📱 LINE Pay 結帳並清空座位</button>
+                <button class="btn btn-blue" onclick="checkout('現金')">💵 現金結帳</button>
+                <button class="btn btn-green" onclick="checkout('LINE Pay')">📱 LINE Pay 結帳</button>
             </div>
         </div>
     </div>
@@ -130,7 +142,7 @@
     <!-- 4. 今日帳務介面 (大幅更新) -->
     <div id="summary-view" class="container">
         <div class="card">
-            <h3>營業統計 (儀表板)</h3>
+            <h3>營業統計</h3>
             
             <!-- 數據網格 -->
             <div class="dashboard-grid">
@@ -190,7 +202,7 @@
 
         let kitchenQueue = JSON.parse(localStorage.getItem('pos_kitchen')) || [];
         let history = JSON.parse(localStorage.getItem('pos_history')) || [];
-        let expenses = JSON.parse(localStorage.getItem('pos_expenses')) || []; // 💡 新增：支出明細狀態
+        let expenses = JSON.parse(localStorage.getItem('pos_expenses')) || []; 
         let currentTable = "1";
 
         // --- 頁面切換邏輯 ---
@@ -304,6 +316,16 @@
             document.getElementById('pax-input').value = tables[currentTable].pax || '';
             document.getElementById('order-remark').value = '';
             renderCart();
+        }
+
+        // 💡 新增：控制人數加減的邏輯
+        function changePax(delta) {
+            let input = document.getElementById('pax-input');
+            let currentVal = parseInt(input.value) || 0;
+            let newVal = currentVal + delta;
+            if (newVal < 0) newVal = 0; // 防呆，人數不能小於 0
+            input.value = newVal;
+            saveTableData(); // 儲存人數狀態
         }
 
         function saveTableData() {
@@ -468,7 +490,7 @@
             loadTableData(); 
         }
 
-        // --- 6. 今日帳務與支出功能 (💡 核心更新) ---
+        // --- 6. 今日帳務與支出功能 ---
         function addExpense() {
             const name = document.getElementById('expense-name').value;
             const amount = parseInt(document.getElementById('expense-amount').value);
@@ -490,7 +512,6 @@
         }
 
         function renderSummary() {
-            // 1. 計算所有營業額與支付方式分類
             let totalRevenue = 0;
             let cashTotal = 0;
             let linepayTotal = 0;
@@ -529,7 +550,6 @@
                 `;
             });
 
-            // 2. 渲染並計算支出明細
             const expList = document.getElementById('expense-list');
             expList.innerHTML = '';
             let totalExpense = 0;
@@ -551,10 +571,8 @@
                 expList.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding:10px;">目前尚無支出紀錄</div>';
             }
 
-            // 3. 計算淨利
             let netProfit = totalRevenue - totalExpense;
 
-            // 4. 更新儀表板畫面
             document.getElementById('dash-revenue').innerText = `$${totalRevenue}`;
             document.getElementById('dash-expense').innerText = `$${totalExpense}`;
             document.getElementById('dash-cash').innerText = `$${cashTotal}`;
@@ -566,7 +584,7 @@
             if(confirm('確定要執行日結嗎？這將會清空今日所有「帳單紀錄」與「支出明細」！')) {
                 history = [];
                 kitchenQueue = []; 
-                expenses = []; // 💡 日結時也要把支出清空
+                expenses = []; 
                 
                 for(let t in tables) tables[t] = { pax: 0, cart: [] };
                 
@@ -582,7 +600,7 @@
             localStorage.setItem('pos_tables', JSON.stringify(tables));
             localStorage.setItem('pos_kitchen', JSON.stringify(kitchenQueue));
             localStorage.setItem('pos_history', JSON.stringify(history));
-            localStorage.setItem('pos_expenses', JSON.stringify(expenses)); // 💡 儲存支出明細
+            localStorage.setItem('pos_expenses', JSON.stringify(expenses)); 
         }
 
         // 系統啟動初始化
