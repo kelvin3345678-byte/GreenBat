@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>簡易點餐與出餐系統</title>
+    <style>
+        :root { --primary: #007AFF; --bg: #F2F2F7; --text: #1C1C1E; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg); color: var(--text); }
+        nav { display: flex; background: white; padding: 10px; border-bottom: 1px solid #ccc; position: sticky; top: 0; z-index: 100; overflow-x: auto; white-space: nowrap;}
+        nav button { flex: 1; padding: 10px; margin: 0 3px; border: none; border-radius: 8px; background: #e5e5ea; font-size: 15px; cursor: pointer; min-width: 80px;}
+        nav button.active { background: var(--primary); color: white; }
+        .container { padding: 15px; display: none; }
+        .container.active { display: block; }
+        
+        .card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        input, select, textarea { width: 100%; padding: 10px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; font-family: inherit;}
+        textarea { resize: vertical; height: 60px; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-bottom: 10px; font-weight: bold;}
+        .btn-blue { background: var(--primary); color: white; }
+        .btn-green { background: #34C759; color: white; }
+        .btn-red { background: #FF3B30; color: white; }
+        .btn-orange { background: #FF9500; color: white; }
+        
+        .list-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; align-items: center;}
+        .total-price { font-size: 24px; font-weight: bold; text-align: right; margin: 15px 0; color: #FF3B30; }
+        
+        /* 廚房與歷史訂單卡片 */
+        .kitchen-task { border-left: 6px solid #FF9500; display: flex; justify-content: space-between; align-items: center; }
+        .history-card { padding: 12px; border: 1px solid #e5e5ea; border-radius: 8px; margin-bottom: 10px; background: #fafafa; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #ccc; padding-bottom: 8px; margin-bottom: 8px; font-size: 14px;}
+        .history-items { font-size: 13px; color: #555; line-height: 1.6; }
+        
+        /* 表單排版 */
+        .select-row { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; }
+        .select-row select, .select-row input { margin: 0; }
+        .select-row button { margin: 0; width: auto; padding: 10px 20px; }
+
+        /* 儀表板排版 */
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .dash-box { padding: 10px; border-radius: 8px; text-align: center; }
+        .dash-title { font-size: 12px; color: #666; display: block; margin-bottom: 5px; }
+        .dash-value { font-size: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- 導覽列 -->
+    <nav>
+        <button id="tab-order" class="active" onclick="switchTab('order')">桌位/點餐</button>
+        <button id="tab-kitchen" onclick="switchTab('kitchen')">👨‍🍳 廚房出餐</button>
+        <button id="tab-menu" onclick="switchTab('menu')">菜單管理</button>
+        <button id="tab-summary" onclick="switchTab('summary')">今日帳務</button>
+    </nav>
+
+    <!-- 1. 點餐與結帳介面 -->
+    <div id="order-view" class="container active">
+        <div class="card">
+            <label>選擇桌號：</label>
+            <select id="table-select" onchange="loadTableData()">
+                <option value="1">第 1 桌</option>
+                <option value="2">第 2 桌</option>
+                <option value="3">第 3 桌</option>
+                <option value="4">第 4 桌</option>
+                <option value="5">第 5 桌</option>
+            </select>
+            <label>用餐人數：</label>
+            <input type="number" id="pax-input" placeholder="輸入人數" value="2" onchange="saveTableData()">
+        </div>
+
+        <div class="card">
+            <h3>選擇餐點</h3>
+            <label>🍱 食物類：</label>
+            <div class="select-row">
+                <select id="food-select" style="flex:1;"></select>
+                <button class="btn btn-blue" onclick="addFromSelect('food-select')">加入</button>
+            </div>
+
+            <label>🥤 飲品類：</label>
+            <div class="select-row">
+                <select id="drink-select" style="flex:1;"></select>
+                <button class="btn btn-blue" onclick="addFromSelect('drink-select')">加入</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>目前桌邊餐點</h3>
+            <div id="cart-list"></div>
+            <div class="total-price">總計: $<span id="cart-total">0</span></div>
+            
+            <label>本次點餐備註：</label>
+            <textarea id="order-remark" placeholder="例如：麵分開裝、盡快上菜、不要蔥..."></textarea>
+            
+            <button class="btn btn-orange" onclick="sendOrder()">📤 送出點餐至廚房</button>
+
+            <div style="margin-top: 25px; border-top: 2px dashed #ccc; padding-top: 15px;">
+                <h4 style="margin-top: 0; color: #666;">👇 吃飽離場結帳區</h4>
+                <button class="btn btn-blue" onclick="checkout('現金')">💵 現金結帳並清空座位</button>
+                <button class="btn btn-green" onclick="checkout('LINE Pay')">📱 LINE Pay 結帳並清空座位</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 廚房出餐介面 -->
+    <div id="kitchen-view" class="container">
+        <div class="card">
+            <h3>待出餐排序 (越上層越早點)</h3>
+            <div id="kitchen-list"></div>
+        </div>
+    </div>
+
+    <!-- 3. 菜單管理介面 -->
+    <div id="menu-view" class="container">
+        <div class="card">
+            <h3>新增品項</h3>
+            <input type="text" id="new-item-name" placeholder="品項名稱 (例: 滷肉飯)">
+            <input type="number" id="new-item-price" placeholder="價格 (例: 50)">
+            <select id="new-item-category">
+                <option value="食物">食物</option>
+                <option value="飲品">飲品</option>
+            </select>
+            <button class="btn btn-blue" onclick="addMenuItem()">新增至菜單</button>
+        </div>
+        <div class="card">
+            <h3>現有菜單</h3>
+            <div id="admin-menu-list"></div>
+        </div>
+    </div>
+
+    <!-- 4. 今日帳務介面 (大幅更新) -->
+    <div id="summary-view" class="container">
+        <div class="card">
+            <h3>營業統計 (儀表板)</h3>
+            
+            <!-- 數據網格 -->
+            <div class="dashboard-grid">
+                <div class="dash-box" style="background: #e5e5ea;">
+                    <span class="dash-title">💰 總營業額</span>
+                    <span class="dash-value" id="dash-revenue">$0</span>
+                </div>
+                <div class="dash-box" style="background: #ffebee;">
+                    <span class="dash-title">💸 總支出</span>
+                    <span class="dash-value" style="color: #FF3B30;" id="dash-expense">$0</span>
+                </div>
+                <div class="dash-box" style="background: #e8f5e9;">
+                    <span class="dash-title">💵 現金收入</span>
+                    <span class="dash-value" style="color: #34C759;" id="dash-cash">$0</span>
+                </div>
+                <div class="dash-box" style="background: #e3f2fd;">
+                    <span class="dash-title">📱 LINE Pay</span>
+                    <span class="dash-value" style="color: #007AFF;" id="dash-linepay">$0</span>
+                </div>
+            </div>
+
+            <!-- 淨利特寫 -->
+            <div class="dash-box" style="background: #fff3e0; border: 2px solid #FF9500;">
+                <span class="dash-title" style="font-size: 14px;">🏆 今日淨利 (營業額 - 支出)</span>
+                <span class="dash-value" style="font-size: 28px; color: #FF9500;" id="dash-profit">$0</span>
+            </div>
+            
+            <h3 style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">新增支出明細</h3>
+            <div class="select-row">
+                <input type="text" id="expense-name" placeholder="支出品項 (例: 菜錢)" style="flex: 2;">
+                <input type="number" id="expense-amount" placeholder="金額" style="flex: 1;">
+                <button class="btn btn-red" onclick="addExpense()">記錄</button>
+            </div>
+            <div id="expense-list"></div>
+        </div>
+        
+        <div class="card">
+            <h3>帳單紀錄 (含明細)</h3>
+            <div id="history-list"></div>
+            <br>
+            <button class="btn btn-red" onclick="endOfDay()">執行日結 (清空今日所有紀錄)</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 系統資料狀態 ---
+        let menu = JSON.parse(localStorage.getItem('pos_menu')) || [
+            { id: 1, name: '牛肉麵', price: 150, category: '食物' },
+            { id: 2, name: '燙青菜', price: 40, category: '食物' },
+            { id: 3, name: '紅茶', price: 30, category: '飲品' }
+        ];
+        
+        let tables = JSON.parse(localStorage.getItem('pos_tables')) || {};
+        for (let i = 1; i <= 5; i++) {
+            if (!tables[i.toString()]) tables[i.toString()] = { pax: 0, cart: [] };
+        }
+
+        let kitchenQueue = JSON.parse(localStorage.getItem('pos_kitchen')) || [];
+        let history = JSON.parse(localStorage.getItem('pos_history')) || [];
+        let expenses = JSON.parse(localStorage.getItem('pos_expenses')) || []; // 💡 新增：支出明細狀態
+        let currentTable = "1";
+
+        // --- 頁面切換邏輯 ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.container').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName + '-view').classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+            
+            if(tabName === 'order') {
+                renderOrderView();
+                renderCart(); 
+            }
+            if(tabName === 'kitchen') renderKitchenView();
+            if(tabName === 'menu') renderMenuAdmin();
+            if(tabName === 'summary') renderSummary();
+        }
+
+        // --- 1. 菜單管理功能 ---
+        function renderMenuAdmin() {
+            const list = document.getElementById('admin-menu-list');
+            list.innerHTML = '';
+            menu.forEach((item, index) => {
+                list.innerHTML += `
+                    <div class="list-item">
+                        <span>${item.name} ($${item.price}) - ${item.category}</span>
+                        <button onclick="removeMenuItem(${index})" style="background:#FF3B30; color:white; border:none; padding:5px 10px; border-radius:5px;">刪除</button>
+                    </div>
+                `;
+            });
+            saveData();
+        }
+
+        function addMenuItem() {
+            const name = document.getElementById('new-item-name').value;
+            const price = parseInt(document.getElementById('new-item-price').value);
+            const category = document.getElementById('new-item-category').value;
+            
+            if(!name || !price) return alert('請填寫完整資訊');
+            menu.push({ id: Date.now(), name, price, category });
+            
+            document.getElementById('new-item-name').value = '';
+            document.getElementById('new-item-price').value = '';
+            renderMenuAdmin();
+            if(document.getElementById('order-view').classList.contains('active')) renderOrderView();
+        }
+
+        function removeMenuItem(index) {
+            menu.splice(index, 1);
+            renderMenuAdmin();
+        }
+
+        // --- 2. 點餐與購物車功能 ---
+        function renderOrderView() {
+            const foodSelect = document.getElementById('food-select');
+            const drinkSelect = document.getElementById('drink-select');
+            
+            foodSelect.innerHTML = '';
+            drinkSelect.innerHTML = '';
+            
+            let hasFood = false;
+            let hasDrink = false;
+
+            menu.forEach(item => {
+                const optionHtml = `<option value="${item.id}">${item.name} ($${item.price})</option>`;
+                if (item.category === '食物') {
+                    foodSelect.innerHTML += optionHtml;
+                    hasFood = true;
+                } else if (item.category === '飲品') {
+                    drinkSelect.innerHTML += optionHtml;
+                    hasDrink = true;
+                }
+            });
+
+            if (!hasFood) foodSelect.innerHTML = '<option value="">(目前無食物品項)</option>';
+            if (!hasDrink) drinkSelect.innerHTML = '<option value="">(目前無飲品品項)</option>';
+
+            loadTableData();
+        }
+
+        function addFromSelect(selectId) {
+            const selectElement = document.getElementById(selectId);
+            const itemId = parseInt(selectElement.value);
+            if (!itemId) return; 
+            addToCart(itemId);
+        }
+
+        function updateTableDisplay() {
+            const select = document.getElementById('table-select');
+            for (let i = 0; i < select.options.length; i++) {
+                let t = select.options[i].value;
+                let cart = tables[t].cart;
+                
+                let cartTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                let status = '(空桌)';
+                
+                if (cartTotal > 0) {
+                    let allServed = cart.length > 0 && cart.every(item => item.status === 'served');
+                    if (allServed) {
+                        status = `(未結帳 $${cartTotal} - ✅已出餐)`;
+                    } else {
+                        status = `(未結帳 $${cartTotal})`;
+                    }
+                }
+                select.options[i].text = `第 ${t} 桌 ${status}`;
+            }
+        }
+
+        function loadTableData() {
+            currentTable = document.getElementById('table-select').value;
+            document.getElementById('pax-input').value = tables[currentTable].pax || '';
+            document.getElementById('order-remark').value = '';
+            renderCart();
+        }
+
+        function saveTableData() {
+            tables[currentTable].pax = document.getElementById('pax-input').value;
+            saveData();
+        }
+
+        function addToCart(itemId) {
+            const item = menu.find(m => m.id === itemId);
+            const cart = tables[currentTable].cart;
+            
+            const existingUnsent = cart.find(c => c.id === itemId && c.status === 'unsent');
+            if(existingUnsent) {
+                existingUnsent.qty++;
+            } else {
+                cart.push({ ...item, qty: 1, status: 'unsent' });
+            }
+            
+            if(tables[currentTable].pax == 0) {
+                tables[currentTable].pax = 1;
+                document.getElementById('pax-input').value = 1;
+            }
+            saveData();
+            renderCart();
+        }
+
+        function removeOneFromCart(index) {
+            const cart = tables[currentTable].cart;
+            cart[index].qty--;
+            if(cart[index].qty === 0) cart.splice(index, 1);
+            saveData();
+            renderCart();
+        }
+
+        function renderCart() {
+            const cart = tables[currentTable].cart;
+            const list = document.getElementById('cart-list');
+            list.innerHTML = '';
+            let total = 0;
+            
+            cart.forEach((item, index) => {
+                total += item.price * item.qty;
+                if(!item.status) item.status = item.isSent ? 'preparing' : 'unsent';
+                let statusBadge = '';
+                let actionBtn = '';
+
+                if (item.status === 'unsent') {
+                    actionBtn = `<button onclick="removeOneFromCart(${index})" style="background:#ccc; border:none; padding:5px 10px; border-radius:5px;">-1</button>`;
+                } else if (item.status === 'preparing') {
+                    statusBadge = '<span style="color:#FF9500; font-size:12px; margin-left:5px;">(製作中)</span>';
+                    actionBtn = '<span style="font-size:13px; color:#FF9500; font-weight:bold;">👨‍🍳 製作中</span>';
+                } else if (item.status === 'served') {
+                    statusBadge = '<span style="color:#34C759; font-size:12px; margin-left:5px;">(已出餐)</span>';
+                    actionBtn = '<span style="font-size:13px; color:#34C759; font-weight:bold;">✅ 已出餐</span>';
+                }
+
+                list.innerHTML += `
+                    <div class="list-item">
+                        <span>${item.name} x ${item.qty} ${statusBadge}<br><small style="color:#666;">$${item.price * item.qty}</small></span>
+                        ${actionBtn}
+                    </div>
+                `;
+            });
+            document.getElementById('cart-total').innerText = total;
+            updateTableDisplay();
+        }
+
+        // --- 3. 送出點餐至廚房 ---
+        function sendOrder() {
+            const cart = tables[currentTable].cart;
+            const unsentItems = cart.filter(item => item.status === 'unsent' || !item.status);
+            
+            if(unsentItems.length === 0) return alert('目前沒有新的餐點可以送出喔！');
+            
+            const remark = document.getElementById('order-remark').value;
+            const timeStr = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+
+            unsentItems.forEach(item => {
+                item.status = 'preparing';
+                item.taskId = Date.now() + Math.random().toString(36).substr(2, 5);
+                
+                kitchenQueue.push({
+                    taskId: item.taskId,
+                    table: currentTable,
+                    name: item.name,
+                    qty: item.qty,
+                    remark: remark,
+                    time: timeStr
+                });
+            });
+
+            document.getElementById('order-remark').value = '';
+            saveData();
+            alert(`✅ 第 ${currentTable} 桌點餐已送至廚房！`);
+            renderCart();
+        }
+
+        // --- 4. 廚房出餐管理 ---
+        function renderKitchenView() {
+            const list = document.getElementById('kitchen-list');
+            list.innerHTML = '';
+            if(kitchenQueue.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding: 20px; color: #666;">目前沒有待出餐點 🎉</div>';
+                return;
+            }
+
+            kitchenQueue.forEach(task => {
+                let remarkHtml = task.remark ? `<div style="color: #FF3B30; font-size: 14px; margin-top: 5px;">📝 備註: ${task.remark}</div>` : '';
+                list.innerHTML += `
+                    <div class="card kitchen-task">
+                        <div>
+                            <span style="background: #eee; padding: 3px 8px; border-radius: 5px; font-size: 14px;">桌號: <strong>${task.table}</strong></span>
+                            <span style="color: #666; font-size: 14px; margin-left: 10px;">🕒 ${task.time}</span>
+                            <div style="font-size: 20px; font-weight: bold; margin-top: 8px;">
+                                ${task.name} <span style="color: var(--primary);">x ${task.qty}</span>
+                            </div>
+                            ${remarkHtml}
+                        </div>
+                        <button class="btn btn-green" style="width: auto; padding: 15px 20px; margin: 0;" onclick="markAsServed('${task.taskId}', '${task.table}')">✅ 出餐</button>
+                    </div>
+                `;
+            });
+        }
+
+        function markAsServed(taskId, tableNum) {
+            kitchenQueue = kitchenQueue.filter(task => task.taskId !== taskId);
+            if(tables[tableNum]) {
+                const cartItem = tables[tableNum].cart.find(c => c.taskId === taskId);
+                if(cartItem) cartItem.status = 'served';
+            }
+            saveData();
+            renderKitchenView();
+        }
+
+        // --- 5. 結帳與翻桌 ---
+        function checkout(paymentMethod) {
+            const cart = tables[currentTable].cart;
+            if(cart.length === 0) return alert('這桌是空的，無須結帳！');
+            
+            const hasUnserved = kitchenQueue.some(task => task.table === currentTable);
+            if(hasUnserved) {
+                if(!confirm(`⚠️ 第 ${currentTable} 桌還有餐點在廚房尚未出餐，確定要直接結帳嗎？`)) return;
+            }
+
+            let total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const cartDetails = JSON.parse(JSON.stringify(cart));
+            
+            history.push({
+                table: currentTable,
+                pax: tables[currentTable].pax,
+                total: total,
+                method: paymentMethod,
+                time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+                items: cartDetails 
+            });
+
+            tables[currentTable] = { pax: 0, cart: [] };
+            kitchenQueue = kitchenQueue.filter(task => task.table !== currentTable);
+
+            saveData();
+            alert(`💰 結帳完成！\n方式：${paymentMethod}\n總計：$${total}\n(第 ${currentTable} 桌已清空)`);
+            loadTableData(); 
+        }
+
+        // --- 6. 今日帳務與支出功能 (💡 核心更新) ---
+        function addExpense() {
+            const name = document.getElementById('expense-name').value;
+            const amount = parseInt(document.getElementById('expense-amount').value);
+            
+            if (!name || !amount) return alert('請填寫支出項目與金額！');
+            
+            expenses.push({ name, amount });
+            document.getElementById('expense-name').value = '';
+            document.getElementById('expense-amount').value = '';
+            
+            saveData();
+            renderSummary();
+        }
+
+        function removeExpense(index) {
+            expenses.splice(index, 1);
+            saveData();
+            renderSummary();
+        }
+
+        function renderSummary() {
+            // 1. 計算所有營業額與支付方式分類
+            let totalRevenue = 0;
+            let cashTotal = 0;
+            let linepayTotal = 0;
+
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+
+            const reversedHistory = [...history].reverse();
+            reversedHistory.forEach(record => {
+                totalRevenue += record.total;
+                if (record.method === '現金') cashTotal += record.total;
+                if (record.method === 'LINE Pay') linepayTotal += record.total;
+                
+                let itemsHtml = '';
+                if(record.items && record.items.length > 0) {
+                    record.items.forEach(item => {
+                        itemsHtml += `<div>🔸 ${item.name} x ${item.qty} <span style="float:right;">$${item.price * item.qty}</span></div>`;
+                    });
+                } else {
+                    itemsHtml = '<div style="color:#999;">(無明細紀錄)</div>';
+                }
+
+                list.innerHTML += `
+                    <div class="history-card">
+                        <div class="history-header">
+                            <span>桌號 <strong>${record.table}</strong> | ${record.method}</span>
+                            <span>🕒 ${record.time}</span>
+                        </div>
+                        <div class="history-items">
+                            ${itemsHtml}
+                        </div>
+                        <div style="text-align: right; margin-top: 5px; font-size: 16px; font-weight: bold; color: #FF3B30;">
+                            總計: $${record.total}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 2. 渲染並計算支出明細
+            const expList = document.getElementById('expense-list');
+            expList.innerHTML = '';
+            let totalExpense = 0;
+            
+            expenses.forEach((exp, index) => {
+                totalExpense += exp.amount;
+                expList.innerHTML += `
+                    <div class="list-item" style="border-bottom: 1px dashed #ccc; padding: 5px 0;">
+                        <span>🛒 ${exp.name}</span>
+                        <div>
+                            <span style="color:#FF3B30; margin-right:10px;">$${exp.amount}</span>
+                            <button onclick="removeExpense(${index})" style="background:#eee; color:#FF3B30; border:none; padding:3px 8px; border-radius:5px;">刪除</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (expenses.length === 0) {
+                expList.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding:10px;">目前尚無支出紀錄</div>';
+            }
+
+            // 3. 計算淨利
+            let netProfit = totalRevenue - totalExpense;
+
+            // 4. 更新儀表板畫面
+            document.getElementById('dash-revenue').innerText = `$${totalRevenue}`;
+            document.getElementById('dash-expense').innerText = `$${totalExpense}`;
+            document.getElementById('dash-cash').innerText = `$${cashTotal}`;
+            document.getElementById('dash-linepay').innerText = `$${linepayTotal}`;
+            document.getElementById('dash-profit').innerText = `$${netProfit}`;
+        }
+
+        function endOfDay() {
+            if(confirm('確定要執行日結嗎？這將會清空今日所有「帳單紀錄」與「支出明細」！')) {
+                history = [];
+                kitchenQueue = []; 
+                expenses = []; // 💡 日結時也要把支出清空
+                
+                for(let t in tables) tables[t] = { pax: 0, cart: [] };
+                
+                saveData();
+                renderSummary();
+                alert('日結完成，系統已歸零準備迎接明天！');
+            }
+        }
+
+        // --- 資料持久化 ---
+        function saveData() {
+            localStorage.setItem('pos_menu', JSON.stringify(menu));
+            localStorage.setItem('pos_tables', JSON.stringify(tables));
+            localStorage.setItem('pos_kitchen', JSON.stringify(kitchenQueue));
+            localStorage.setItem('pos_history', JSON.stringify(history));
+            localStorage.setItem('pos_expenses', JSON.stringify(expenses)); // 💡 儲存支出明細
+        }
+
+        // 系統啟動初始化
+        renderOrderView();
+    </script>
+</body>
+</html>
