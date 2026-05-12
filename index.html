@@ -53,7 +53,7 @@
 
     <nav>
         <button id="tab-order" class="active" onclick="switchTab('order')">桌位/點餐</button>
-        <button id="tab-kitchen" onclick="switchTab('kitchen')">👨‍🍳 廚房出餐</button>
+        <button id="tab-kitchen" onclick="switchTab('kitchen')">廚房出餐</button>
         <button id="tab-menu" onclick="switchTab('menu')">菜單管理</button>
         <button id="tab-summary" onclick="switchTab('summary')">今日帳務</button>
     </nav>
@@ -67,6 +67,8 @@
                 <option value="3">第 3 桌</option>
                 <option value="4">第 4 桌</option>
                 <option value="5">第 5 桌</option>
+                <option value="6">吧檯</option>
+		<option value="7">沙發區</option>
             </select>
             
             <label>用餐人數：</label>
@@ -98,7 +100,7 @@
             <div class="total-price">總計: $<span id="cart-total">0</span></div>
             
             <label>本次點餐備註：</label>
-            <textarea id="order-remark" placeholder="例如：麵分開裝、盡快上菜、風味拿鐵要焦糖..."></textarea>
+            <textarea id="order-remark" placeholder="例如：飯少、盡快上菜、拿鐵去冰..."></textarea>
             
             <button class="btn btn-orange" onclick="sendOrder()">📤 送出點餐至廚房</button>
 
@@ -180,7 +182,7 @@
     </div>
 
     <script>
-        // --- 💡 全新完整預設菜單 ---
+        // --- 💡 修正後完整預設菜單 ---
         const defaultMenu = [
             // 咖啡類
             { id: 101, name: '美式咖啡 (冰)', price: 150, category: '飲品' },
@@ -188,8 +190,12 @@
             { id: 103, name: '西西里咖啡 (冰)', price: 180, category: '飲品' },
             { id: 104, name: '拿鐵 (冰)', price: 180, category: '飲品' },
             { id: 105, name: '拿鐵 (熱)', price: 180, category: '飲品' },
-            { id: 106, name: '風味拿鐵(冰) [焦糖/烤花生/榛果/蜂蜜]', price: 190, category: '飲品' },
-            { id: 107, name: '風味拿鐵(熱) [焦糖/烤花生/榛果/蜂蜜]', price: 190, category: '飲品' },
+            { id: 106, name: '焦糖烤花生風味拿鐵 (冰)', price: 190, category: '飲品' },
+            { id: 107, name: '焦糖烤花生風味拿鐵 (熱)', price: 190, category: '飲品' },
+            { id: 108, name: '榛果風味拿鐵 (冰)', price: 190, category: '飲品' },
+            { id: 109, name: '榛果風味拿鐵 (熱)', price: 190, category: '飲品' },
+            { id: 110, name: '蜂蜜風味拿鐵 (冰)', price: 190, category: '飲品' },
+            { id: 111, name: '蜂蜜風味拿鐵 (熱)', price: 190, category: '飲品' },
             
             // 茶品類
             { id: 201, name: '阿薩姆紅茶 (冰)', price: 150, category: '飲品' },
@@ -202,27 +208,30 @@
             { id: 208, name: '蜂蜜鮮奶茶 (熱)', price: 180, category: '飲品' },
             { id: 209, name: '紫蘇紅茶 (冰)', price: 160, category: '飲品' },
             { id: 210, name: '紫蘇紅茶 (熱)', price: 160, category: '飲品' },
+            
+            // 僅供熱飲、可回沖
             { id: 211, name: '高冷玉烏龍 (熱/可回沖)', price: 200, category: '飲品' },
             { id: 212, name: '乳香金萱 (熱/可回沖)', price: 180, category: '飲品' },
             { id: 213, name: '南非國寶茶(無咖啡因) (熱/可回沖)', price: 180, category: '飲品' },
-            { id: 214, name: '安神花草茶[玫瑰/薰衣草] (熱/可回沖)', price: 180, category: '飲品' },
+            { id: 214, name: '玫瑰安神花草茶(無咖啡因) (熱/可回沖)', price: 180, category: '飲品' },
+            { id: 215, name: '薰衣草安神花草茶(無咖啡因) (熱/可回沖)', price: 180, category: '飲品' },
             
-            // 新增飲品
+            // 新增特調飲品
             { id: 301, name: '漂浮可樂 (冰)', price: 170, category: '飲品' },
             { id: 302, name: '漂浮咖啡 (冰)', price: 170, category: '飲品' },
-            { id: 303, name: '可可 (冰)', price: 180, category: '飲品' },
-            { id: 304, name: '可可 (熱)', price: 180, category: '飲品' },
+            { id: 303, name: '鮮奶油可可飲料 (冰)', price: 180, category: '飲品' },
+            { id: 304, name: '鮮奶油可可飲料 (熱)', price: 180, category: '飲品' },
 
             // 新增食物
-            { id: 401, name: '牛肉丼飯', price: 230, category: '食物' },
-            { id: 402, name: '豬肉丼飯', price: 220, category: '食物' },
-            { id: 403, name: '起司拼盤', price: 380, category: '食物' },
-            { id: 404, name: '水餃', price: 150, category: '食物' }
+            { id: 401, name: '牛五花丼飯', price: 230, category: '食物' },
+            { id: 402, name: '豬五花丼飯', price: 220, category: '食物' },
+            { id: 403, name: '香料火腿起司拼盤', price: 380, category: '食物' },
+            { id: 404, name: '高麗菜豬肉水餃', price: 150, category: '食物' }
         ];
 
         // --- 系統資料狀態 ---
-        // 💡 更改了 localStorage 的 Key 為 pos_menu_v2，強制載入全新的菜單
-        let menu = JSON.parse(localStorage.getItem('pos_menu_v2')) || defaultMenu;
+        // 💡 更改了 localStorage 的 Key 為 pos_menu_v4，強制載入更新後的口味菜單
+        let menu = JSON.parse(localStorage.getItem('pos_menu_v4')) || defaultMenu;
         
         let tables = JSON.parse(localStorage.getItem('pos_tables')) || {};
         for (let i = 1; i <= 5; i++) {
@@ -624,8 +633,8 @@
 
         // --- 資料持久化 ---
         function saveData() {
-            // 💡 對應更新了儲存的 Key
-            localStorage.setItem('pos_menu_v2', JSON.stringify(menu));
+            // 💡 儲存的 Key 已更新為 pos_menu_v4，載入時會自動抓取修正後的菜單
+            localStorage.setItem('pos_menu_v4', JSON.stringify(menu));
             localStorage.setItem('pos_tables', JSON.stringify(tables));
             localStorage.setItem('pos_kitchen', JSON.stringify(kitchenQueue));
             localStorage.setItem('pos_history', JSON.stringify(history));
