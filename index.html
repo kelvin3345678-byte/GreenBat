@@ -8,7 +8,7 @@
         :root { --primary: #007AFF; --bg: #F2F2F7; --text: #1C1C1E; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg); color: var(--text); }
         nav { display: flex; background: white; padding: 10px; border-bottom: 1px solid #ccc; position: sticky; top: 0; z-index: 100; overflow-x: auto; white-space: nowrap;}
-        nav button { flex: 1; padding: 10px; margin: 0 3px; border: none; border-radius: 8px; background: #e5e5ea; font-size: 15px; cursor: pointer; min-width: 90px;}
+        nav button { flex: 1; padding: 10px; margin: 0 3px; border: none; border-radius: 8px; background: #e5e5ea; font-size: 15px; cursor: pointer; min-width: 80px;}
         nav button.active { background: var(--primary); color: white; }
         .container { padding: 15px; display: none; }
         .container.active { display: block; }
@@ -25,30 +25,35 @@
         .list-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; align-items: center;}
         .total-price { font-size: 24px; font-weight: bold; text-align: right; margin: 15px 0; color: #FF3B30; }
         
+        /* 廚房與歷史訂單卡片 */
         .kitchen-task { border-left: 6px solid #FF9500; display: flex; justify-content: space-between; align-items: center; }
         .history-card { padding: 12px; border: 1px solid #e5e5ea; border-radius: 8px; margin-bottom: 10px; background: #fafafa; }
         .history-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #ccc; padding-bottom: 8px; margin-bottom: 8px; font-size: 14px;}
         .history-items { font-size: 13px; color: #555; line-height: 1.6; }
         
+        /* 表單排版 */
         .select-row { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; }
         .select-row select, .select-row input { margin: 0; }
         .select-row button { margin: 0; width: auto; padding: 10px 20px; }
 
+        /* 儀表板排版 */
         .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .dash-box { padding: 10px; border-radius: 8px; text-align: center; }
         .dash-title { font-size: 12px; color: #666; display: block; margin-bottom: 5px; }
         .dash-value { font-size: 20px; font-weight: bold; }
 
+        /* 用餐人數按鈕排版 */
         .pax-control { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
         .pax-control input { margin: 0; text-align: center; flex: 1; font-weight: bold; font-size: 18px;}
         .pax-btn { background: #e5e5ea; border: none; font-size: 22px; font-weight: bold; border-radius: 8px; width: 45px; height: 45px; cursor: pointer; color: var(--primary); display: flex; align-items: center; justify-content: center;}
+        .pax-btn:active { background: #d1d1d6; }
     </style>
 </head>
 <body>
 
     <nav>
-        <button id="tab-order" class="active" onclick="switchTab('order')">🍽️ 桌位點餐</button>
-        <button id="tab-reservation" onclick="switchTab('reservation')">📝 訂位管理</button>
+        <button id="tab-order" class="active" onclick="switchTab('order')">🍽️ 桌位/點餐</button>
+        <button id="tab-reservation" onclick="switchTab('reservation')">📝 訂位</button>
         <button id="tab-kitchen" onclick="switchTab('kitchen')">👨‍🍳 廚房出餐</button>
         <button id="tab-menu" onclick="switchTab('menu')">📂 菜單管理</button>
         <button id="tab-summary" onclick="switchTab('summary')">📊 今日帳務</button>
@@ -58,18 +63,18 @@
         <div class="card">
             <label>選擇桌號：</label>
             <select id="table-select" onchange="loadTableData()">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
+                <option value="1">第 1 桌</option>
+                <option value="2">第 2 桌</option>
+                <option value="3">第 3 桌</option>
+                <option value="4">第 4 桌</option>
+                <option value="5">第 5 桌</option>
                 <option value="吧檯">吧檯</option>
                 <option value="沙發區">沙發區</option>
             </select>
             
             <label>併桌標記 (選填)：</label>
-            <input type="text" id="merge-note" placeholder="例如：1+2 或 併入3桌" oninput="saveTableData()">
-
+            <input type="text" id="merge-note" placeholder="例如：1+2 或 併入3桌" onchange="saveTableData()">
+            
             <label>用餐人數：</label>
             <div class="pax-control">
                 <button class="pax-btn" onclick="changePax(-1)">-</button>
@@ -85,6 +90,7 @@
                 <select id="food-select" style="flex:1;"></select>
                 <button class="btn btn-blue" onclick="addFromSelect('food-select')">加入</button>
             </div>
+
             <label>🥤 飲品類：</label>
             <div class="select-row">
                 <select id="drink-select" style="flex:1;"></select>
@@ -96,12 +102,16 @@
             <h3>目前桌邊餐點</h3>
             <div id="cart-list"></div>
             <div class="total-price">總計: $<span id="cart-total">0</span></div>
+            
             <label>本次點餐備註：</label>
-            <textarea id="order-remark" placeholder="例如：飯少、盡快上菜..."></textarea>
+            <textarea id="order-remark" placeholder="例如：飯少、盡快上菜、拿鐵去冰..."></textarea>
+            
             <button class="btn btn-orange" onclick="sendOrder()">📤 送出點餐至廚房</button>
+
             <div style="margin-top: 25px; border-top: 2px dashed #ccc; padding-top: 15px;">
-                <button class="btn btn-blue" onclick="checkout('現金')">💵 現金結帳並清空</button>
-                <button class="btn btn-green" onclick="checkout('LINE Pay')">📱 LINE Pay 結帳並清空</button>
+                <h4 style="margin-top: 0; color: #666;">👇 吃飽離場結帳區</h4>
+                <button class="btn btn-blue" onclick="checkout('現金')">💵 現金結帳</button>
+                <button class="btn btn-green" onclick="checkout('LINE Pay')">📱 LINE Pay 結帳</button>
             </div>
         </div>
     </div>
@@ -109,12 +119,13 @@
     <div id="reservation-view" class="container">
         <div class="card">
             <h3>新增訂位</h3>
-            <p style="font-size: 14px; color: #666;">格式：名稱,時間,人數 (例如：程小姐,21:00,x2)</p>
+            <p style="font-size: 14px; color: #666; margin-top: 0;">請依照 <b>名稱,時間,人數</b> 格式輸入 (逗號隔開)</p>
             <div class="select-row">
-                <input type="text" id="res-input" placeholder="程小姐,21:00,x2" style="flex: 1;">
-                <button class="btn btn-blue" onclick="addReservation()">新增訂位</button>
+                <input type="text" id="res-input" placeholder="例如：程小姐,21:00,x2" style="flex: 1;">
+                <button class="btn btn-blue" onclick="addReservation()">新增</button>
             </div>
         </div>
+
         <div class="card">
             <h3>今日訂位列表 (依時間排序)</h3>
             <div id="reservation-list"></div>
@@ -131,8 +142,8 @@
     <div id="menu-view" class="container">
         <div class="card">
             <h3>新增品項</h3>
-            <input type="text" id="new-item-name" placeholder="品項名稱">
-            <input type="number" id="new-item-price" placeholder="價格">
+            <input type="text" id="new-item-name" placeholder="品項名稱 (例: 滷肉飯)">
+            <input type="number" id="new-item-price" placeholder="價格 (例: 50)">
             <select id="new-item-category">
                 <option value="食物">食物</option>
                 <option value="飲品">飲品</option>
@@ -148,22 +159,49 @@
     <div id="summary-view" class="container">
         <div class="card">
             <h3>營業統計</h3>
+            
             <div class="dashboard-grid">
-                <div class="dash-box" style="background: #e5e5ea;"><span class="dash-title">💰 營業額</span><span class="dash-value" id="dash-revenue">$0</span></div>
-                <div class="dash-box" style="background: #ffebee;"><span class="dash-title">💸 總支出</span><span class="dash-value" style="color: #FF3B30;" id="dash-expense">$0</span></div>
-                <div class="dash-box" style="background: #e8f5e9;"><span class="dash-title">💵 現金</span><span class="dash-value" style="color: #34C759;" id="dash-cash">$0</span></div>
-                <div class="dash-box" style="background: #e3f2fd;"><span class="dash-title">📱 LINE Pay</span><span class="dash-value" style="color: #007AFF;" id="dash-linepay">$0</span></div>
+                <div class="dash-box" style="background: #e5e5ea;">
+                    <span class="dash-title">💰 總營業額</span>
+                    <span class="dash-value" id="dash-revenue">$0</span>
+                </div>
+                <div class="dash-box" style="background: #ffebee;">
+                    <span class="dash-title">💸 總支出</span>
+                    <span class="dash-value" style="color: #FF3B30;" id="dash-expense">$0</span>
+                </div>
+                <div class="dash-box" style="background: #e8f5e9;">
+                    <span class="dash-title">💵 現金收入</span>
+                    <span class="dash-value" style="color: #34C759;" id="dash-cash">$0</span>
+                </div>
+                <div class="dash-box" style="background: #e3f2fd;">
+                    <span class="dash-title">📱 LINE Pay</span>
+                    <span class="dash-value" style="color: #007AFF;" id="dash-linepay">$0</span>
+                </div>
             </div>
-            <div class="dash-box" style="background: #fff3e0; border: 2px solid #FF9500;"><span class="dash-title">🏆 淨利</span><span class="dash-value" style="font-size: 28px; color: #FF9500;" id="dash-profit">$0</span></div>
-            <h3 style="margin-top: 20px;">新增支出</h3>
-            <div class="select-row"><input type="text" id="expense-name" placeholder="品項" style="flex:2;"><input type="number" id="expense-amount" placeholder="金額" style="flex:1;"><button class="btn btn-red" onclick="addExpense()">紀錄</button></div>
+
+            <div class="dash-box" style="background: #fff3e0; border: 2px solid #FF9500;">
+                <span class="dash-title" style="font-size: 14px;">🏆 今日淨利 (營業額 - 支出)</span>
+                <span class="dash-value" style="font-size: 28px; color: #FF9500;" id="dash-profit">$0</span>
+            </div>
+            
+            <h3 style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">新增支出明細</h3>
+            <div class="select-row">
+                <input type="text" id="expense-name" placeholder="支出品項 (例: 菜錢)" style="flex: 2;">
+                <input type="number" id="expense-amount" placeholder="金額" style="flex: 1;">
+                <button class="btn btn-red" onclick="addExpense()">記錄</button>
+            </div>
             <div id="expense-list"></div>
         </div>
-        <div class="card"><h3>帳單明細</h3><div id="history-list"></div><br><button class="btn btn-red" onclick="endOfDay()">執行日結 (歸零)</button></div>
+        
+        <div class="card">
+            <h3>帳單紀錄 (含明細)</h3>
+            <div id="history-list"></div>
+            <br>
+            <button class="btn btn-red" onclick="endOfDay()">執行日結 (清空今日所有紀錄)</button>
+        </div>
     </div>
 
     <script>
-        // --- 核心資料 ---
         const defaultMenu = [
             { id: 101, name: '美式咖啡 (冰)', price: 150, category: '飲品' },
             { id: 102, name: '美式咖啡 (熱)', price: 150, category: '飲品' },
@@ -176,6 +214,19 @@
             { id: 109, name: '榛果風味拿鐵 (熱)', price: 190, category: '飲品' },
             { id: 110, name: '蜂蜜風味拿鐵 (冰)', price: 190, category: '飲品' },
             { id: 111, name: '蜂蜜風味拿鐵 (熱)', price: 190, category: '飲品' },
+            { id: 201, name: '阿薩姆紅茶 (冰)', price: 150, category: '飲品' },
+            { id: 202, name: '阿薩姆紅茶 (熱)', price: 150, category: '飲品' },
+            { id: 203, name: '鮮奶茶 (冰)', price: 170, category: '飲品' },
+            { id: 204, name: '鮮奶茶 (熱)', price: 170, category: '飲品' },
+            { id: 205, name: '蜂蜜紅茶 (冰)', price: 160, category: '飲品' },
+            { id: 206, name: '蜂蜜紅茶 (熱)', price: 160, category: '飲品' },
+            { id: 207, name: '蜂蜜鮮奶茶 (冰)', price: 180, category: '飲品' },
+            { id: 208, name: '蜂蜜鮮奶茶 (熱)', price: 180, category: '飲品' },
+            { id: 209, name: '紫蘇紅茶 (冰)', price: 160, category: '飲品' },
+            { id: 210, name: '紫蘇紅茶 (熱)', price: 160, category: '飲品' },
+            { id: 211, name: '高冷玉烏龍 (熱/可回沖)', price: 200, category: '飲品' },
+            { id: 212, name: '乳香金萱 (熱/可回沖)', price: 180, category: '飲品' },
+            { id: 213, name: '南非國寶茶(無咖啡因) (熱/可回沖)', price: 180, category: '飲品' },
             { id: 214, name: '玫瑰安神花草茶(無咖啡因) (熱/可回沖)', price: 180, category: '飲品' },
             { id: 215, name: '薰衣草安神花草茶(無咖啡因) (熱/可回沖)', price: 180, category: '飲品' },
             { id: 301, name: '漂浮可樂 (冰)', price: 170, category: '飲品' },
@@ -188,13 +239,18 @@
             { id: 404, name: '高麗菜豬肉水餃', price: 150, category: '食物' }
         ];
 
-        let menu = JSON.parse(localStorage.getItem('pos_menu_v6')) || defaultMenu;
+        let menu = JSON.parse(localStorage.getItem('pos_menu_v5')) || defaultMenu;
+        
         let tables = JSON.parse(localStorage.getItem('pos_tables')) || {};
-        ['1','2','3','4','5','吧檯','沙發區'].forEach(t => { if(!tables[t]) tables[t] = { pax: 0, cart: [], mergeNote: "" }; });
+        const tableNames = ['1', '2', '3', '4', '5', '吧檯', '沙發區'];
+        tableNames.forEach(t => {
+            if (!tables[t]) tables[t] = { pax: 0, cart: [], mergeNote: "" };
+        });
+
         let kitchenQueue = JSON.parse(localStorage.getItem('pos_kitchen')) || [];
         let history = JSON.parse(localStorage.getItem('pos_history')) || [];
         let expenses = JSON.parse(localStorage.getItem('pos_expenses')) || []; 
-        let reservations = JSON.parse(localStorage.getItem('pos_reservations')) || [];
+        let reservations = JSON.parse(localStorage.getItem('pos_reservations')) || []; 
         let currentTable = "1";
 
         function switchTab(tabName) {
@@ -202,52 +258,151 @@
             document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
             document.getElementById(tabName + '-view').classList.add('active');
             document.getElementById('tab-' + tabName).classList.add('active');
-            if(tabName === 'order') { renderOrderView(); renderCart(); }
+            
+            if(tabName === 'order') {
+                renderOrderView();
+                renderCart(); 
+            }
             if(tabName === 'reservation') renderReservations();
             if(tabName === 'kitchen') renderKitchenView();
             if(tabName === 'menu') renderMenuAdmin();
             if(tabName === 'summary') renderSummary();
         }
 
-        // --- 訂位系統 ---
         function addReservation() {
             let inputStr = document.getElementById('res-input').value.trim();
             if(!inputStr) return;
+            
             inputStr = inputStr.replace(/，/g, ',');
             let parts = inputStr.split(',');
-            if(parts.length < 3) return alert('格式錯誤');
-            reservations.push({ id: Date.now(), name: parts[0], time: parts[1], pax: parts[2], arrived: false });
+            
+            if(parts.length < 3) {
+                alert('格式不正確！請確認包含名稱、時間、人數，並以逗號隔開。\n例如：程小姐,21:00,x2');
+                return;
+            }
+
+            reservations.push({
+                id: Date.now(),
+                name: parts[0].trim(),
+                time: parts[1].trim(),
+                pax: parts[2].trim(),
+                arrived: false
+            });
+
             document.getElementById('res-input').value = '';
-            saveData(); renderReservations();
+            saveData();
+            renderReservations();
         }
 
         function toggleReservation(id) {
-            let res = reservations.find(r => r.id == id);
-            if(res) { res.arrived = !res.arrived; saveData(); renderReservations(); }
+            let target = reservations.find(r => r.id == id);
+            if(target) {
+                target.arrived = !target.arrived; 
+                saveData();
+                renderReservations();
+            }
         }
 
         function renderReservations() {
             const list = document.getElementById('reservation-list');
             list.innerHTML = '';
-            // 💡 關鍵修復：強制依照 00:00~23:59 排序
-            reservations.sort((a, b) => a.time.localeCompare(b.time));
+            
+            // 💡 修正排序邏輯：將時間補零後再排序，這樣 9:00 就不會排在 21:00 後面了
+            reservations.sort((a, b) => {
+                let timeA = a.time.padStart(5, '0');
+                let timeB = b.time.padStart(5, '0');
+                return timeA.localeCompare(timeB);
+            });
+
+            if(reservations.length === 0) {
+                list.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding:20px;">今日尚無訂位資料</div>';
+                return;
+            }
+
             reservations.forEach(res => {
                 let btnClass = res.arrived ? "btn-green" : "btn-orange";
-                let btnText = res.arrived ? "✅ 已入座" : "等候中";
-                list.innerHTML += `<div class="list-item" style="opacity:${res.arrived ? 0.5 : 1}"><div><span style="font-size:20px; font-weight:bold; color:var(--primary)">${res.time}</span> <span style="font-size:18px; margin-left:10px;">${res.name}</span> <small>(${res.pax})</small></div><button onclick="toggleReservation('${res.id}')" class="btn ${btnClass}" style="width:auto; margin:0;">${btnText}</button></div>`;
+                let btnText = res.arrived ? "✅ 已入座" : "等候中"; // 💡 修正按鈕文字
+                let opacity = res.arrived ? "0.5" : "1"; 
+
+                list.innerHTML += `
+                    <div class="list-item" style="opacity: ${opacity};">
+                        <div>
+                            <span style="font-size: 20px; font-weight: bold; color: var(--primary);">${res.time}</span>
+                            <span style="margin-left: 15px; font-size: 18px; font-weight: bold;">${res.name}</span>
+                            <span style="margin-left: 10px; color: #666; font-size: 14px;">(${res.pax})</span>
+                        </div>
+                        <button onclick="toggleReservation('${res.id}')" class="btn ${btnClass}" style="width: auto; padding: 10px 15px; margin: 0; min-width: 80px;">${btnText}</button>
+                    </div>
+                `;
             });
         }
 
-        // --- 桌位與點餐 ---
-        function renderOrderView() {
-            const food = document.getElementById('food-select');
-            const drink = document.getElementById('drink-select');
-            food.innerHTML = drink.innerHTML = '';
-            menu.forEach(item => {
-                const opt = `<option value="${item.id}">${item.name} ($${item.price})</option>`;
-                if(item.category === '食物') food.innerHTML += opt; else drink.innerHTML += opt;
+
+        function renderMenuAdmin() {
+            const list = document.getElementById('admin-menu-list');
+            list.innerHTML = '';
+            menu.forEach((item, index) => {
+                list.innerHTML += `
+                    <div class="list-item">
+                        <span>${item.name} ($${item.price}) - ${item.category}</span>
+                        <button onclick="removeMenuItem(${index})" style="background:#FF3B30; color:white; border:none; padding:5px 10px; border-radius:5px;">刪除</button>
+                    </div>
+                `;
             });
+            saveData();
+        }
+
+        function addMenuItem() {
+            const name = document.getElementById('new-item-name').value;
+            const price = parseInt(document.getElementById('new-item-price').value);
+            const category = document.getElementById('new-item-category').value;
+            
+            if(!name || !price) return alert('請填寫完整資訊');
+            menu.push({ id: Date.now(), name, price, category });
+            
+            document.getElementById('new-item-name').value = '';
+            document.getElementById('new-item-price').value = '';
+            renderMenuAdmin();
+            if(document.getElementById('order-view').classList.contains('active')) renderOrderView();
+        }
+
+        function removeMenuItem(index) {
+            menu.splice(index, 1);
+            renderMenuAdmin();
+        }
+
+        function renderOrderView() {
+            const foodSelect = document.getElementById('food-select');
+            const drinkSelect = document.getElementById('drink-select');
+            
+            foodSelect.innerHTML = '';
+            drinkSelect.innerHTML = '';
+            
+            let hasFood = false;
+            let hasDrink = false;
+
+            menu.forEach(item => {
+                const optionHtml = `<option value="${item.id}">${item.name} ($${item.price})</option>`;
+                if (item.category === '食物') {
+                    foodSelect.innerHTML += optionHtml;
+                    hasFood = true;
+                } else if (item.category === '飲品') {
+                    drinkSelect.innerHTML += optionHtml;
+                    hasDrink = true;
+                }
+            });
+
+            if (!hasFood) foodSelect.innerHTML = '<option value="">(目前無食物品項)</option>';
+            if (!hasDrink) drinkSelect.innerHTML = '<option value="">(目前無飲品品項)</option>';
+
             loadTableData();
+        }
+
+        function addFromSelect(selectId) {
+            const selectElement = document.getElementById(selectId);
+            const itemId = parseInt(selectElement.value);
+            if (!itemId) return; 
+            addToCart(itemId);
         }
 
         function updateTableDisplay() {
@@ -255,155 +410,316 @@
             for (let i = 0; i < select.options.length; i++) {
                 let t = select.options[i].value;
                 let cart = tables[t].cart;
+                
                 let cartTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-                let mergeTag = tables[t].mergeNote ? ` (${tables[t].mergeNote})` : ""; // 💡 併桌呈現
-                let status = cartTotal > 0 ? (cart.every(it => it.status === 'served') ? ` - ✅齊餐` : ` - $${cartTotal}`) : " (空)";
-                select.options[i].text = `${t}${mergeTag}${status}`;
+                let status = '(空桌)';
+                
+                if (cartTotal > 0) {
+                    let allServed = cart.length > 0 && cart.every(item => item.status === 'served');
+                    if (allServed) {
+                        status = `(未結帳 $${cartTotal} - ✅已出餐)`;
+                    } else {
+                        status = `(未結帳 $${cartTotal})`;
+                    }
+                }
+                
+                // 💡 在下拉選單中顯示併桌標記
+                let mergeTag = tables[t].mergeNote ? ` [${tables[t].mergeNote}]` : "";
+                select.options[i].text = `${t}${mergeTag} ${status}`;
             }
         }
 
         function loadTableData() {
             currentTable = document.getElementById('table-select').value;
             document.getElementById('pax-input').value = tables[currentTable].pax || '';
-            document.getElementById('merge-note').value = tables[currentTable].mergeNote || ''; // 載入併桌備註
+            document.getElementById('merge-note').value = tables[currentTable].mergeNote || ''; // 載入併桌標記
             document.getElementById('order-remark').value = '';
             renderCart();
         }
 
-        function saveTableData() {
-            tables[currentTable].pax = document.getElementById('pax-input').value;
-            tables[currentTable].mergeNote = document.getElementById('merge-note').value; // 儲存併桌備註
-            saveData(); updateTableDisplay();
-        }
-
         function changePax(delta) {
             let input = document.getElementById('pax-input');
-            input.value = Math.max(0, (parseInt(input.value)||0) + delta);
-            saveTableData();
+            let currentVal = parseInt(input.value) || 0;
+            let newVal = currentVal + delta;
+            if (newVal < 0) newVal = 0; 
+            input.value = newVal;
+            saveTableData(); 
         }
 
-        function addFromSelect(id) {
-            const itemId = parseInt(document.getElementById(id).value);
-            if(!itemId) return;
+        function saveTableData() {
+            tables[currentTable].pax = document.getElementById('pax-input').value;
+            tables[currentTable].mergeNote = document.getElementById('merge-note').value; // 儲存併桌標記
+            saveData(); 
+            updateTableDisplay(); // 儲存後立即更新下拉選單文字
+        }
+
+        function addToCart(itemId) {
             const item = menu.find(m => m.id === itemId);
             const cart = tables[currentTable].cart;
-            const unsent = cart.find(c => c.id === itemId && c.status === 'unsent');
-            if(unsent) unsent.qty++; else cart.push({ ...item, qty: 1, status: 'unsent' });
-            if(tables[currentTable].pax == 0) { tables[currentTable].pax = 1; document.getElementById('pax-input').value = 1; }
-            saveTableData(); renderCart();
+            
+            const existingUnsent = cart.find(c => c.id === itemId && c.status === 'unsent');
+            if(existingUnsent) {
+                existingUnsent.qty++;
+            } else {
+                cart.push({ ...item, qty: 1, status: 'unsent' });
+            }
+            
+            if(tables[currentTable].pax == 0) {
+                tables[currentTable].pax = 1;
+                document.getElementById('pax-input').value = 1;
+            }
+            saveTableData();
+            renderCart();
+        }
+
+        function removeOneFromCart(index) {
+            const cart = tables[currentTable].cart;
+            cart[index].qty--;
+            if(cart[index].qty === 0) cart.splice(index, 1);
+            saveData();
+            renderCart();
         }
 
         function renderCart() {
+            const cart = tables[currentTable].cart;
             const list = document.getElementById('cart-list');
-            list.innerHTML = ''; let total = 0;
-            tables[currentTable].cart.forEach((it, idx) => {
-                total += it.price * it.qty;
-                let badge = it.status==='preparing'?'<span style="color:#FF9500;">(製作中)</span>':it.status==='served'?'<span style="color:#34C759;">(已出餐)</span>':'';
-                let btn = it.status==='unsent' ? `<button onclick="removeCart(${idx})" style="background:#ccc; border:none; border-radius:5px;">-1</button>` : `<span style="font-size:12px; color:#999;">${it.status==='served'?'✅':'👨‍🍳'}</span>`;
-                list.innerHTML += `<div class="list-item"><span>${it.name} x ${it.qty} ${badge}<br><small>$${it.price*it.qty}</small></span>${btn}</div>`;
+            list.innerHTML = '';
+            let total = 0;
+            
+            cart.forEach((item, index) => {
+                total += item.price * item.qty;
+                if(!item.status) item.status = item.isSent ? 'preparing' : 'unsent';
+                let statusBadge = '';
+                let actionBtn = '';
+
+                if (item.status === 'unsent') {
+                    actionBtn = `<button onclick="removeOneFromCart(${index})" style="background:#ccc; border:none; padding:5px 10px; border-radius:5px;">-1</button>`;
+                } else if (item.status === 'preparing') {
+                    statusBadge = '<span style="color:#FF9500; font-size:12px; margin-left:5px;">(製作中)</span>';
+                    actionBtn = '<span style="font-size:13px; color:#FF9500; font-weight:bold;">👨‍🍳 製作中</span>';
+                } else if (item.status === 'served') {
+                    statusBadge = '<span style="color:#34C759; font-size:12px; margin-left:5px;">(已出餐)</span>';
+                    actionBtn = '<span style="font-size:13px; color:#34C759; font-weight:bold;">✅ 已出餐</span>';
+                }
+
+                list.innerHTML += `
+                    <div class="list-item">
+                        <span>${item.name} x ${item.qty} ${statusBadge}<br><small style="color:#666;">$${item.price * item.qty}</small></span>
+                        ${actionBtn}
+                    </div>
+                `;
             });
             document.getElementById('cart-total').innerText = total;
             updateTableDisplay();
         }
 
-        function removeCart(idx) {
-            const cart = tables[currentTable].cart;
-            if(--cart[idx].qty === 0) cart.splice(idx, 1);
-            saveData(); renderCart();
-        }
-
         function sendOrder() {
-            const unsent = tables[currentTable].cart.filter(it => it.status === 'unsent');
-            if(unsent.length === 0) return alert('無新餐點');
+            const cart = tables[currentTable].cart;
+            const unsentItems = cart.filter(item => item.status === 'unsent' || !item.status);
+            
+            if(unsentItems.length === 0) return alert('目前沒有新的餐點可以送出喔！');
+            
             const remark = document.getElementById('order-remark').value;
-            const time = new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
-            unsent.forEach(it => {
-                it.status = 'preparing'; it.taskId = Date.now() + Math.random();
-                kitchenQueue.push({ taskId: it.taskId, table: currentTable, name: it.name, qty: it.qty, remark, time });
+            const timeStr = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+
+            unsentItems.forEach(item => {
+                item.status = 'preparing';
+                item.taskId = Date.now() + Math.random().toString(36).substr(2, 5);
+                
+                kitchenQueue.push({
+                    taskId: item.taskId,
+                    table: currentTable,
+                    name: item.name,
+                    qty: item.qty,
+                    remark: remark,
+                    time: timeStr
+                });
             });
+
             document.getElementById('order-remark').value = '';
-            saveData(); alert('已送至廚房'); renderCart();
+            saveData();
+            alert(`✅ ${currentTable} 點餐已送至廚房！`);
+            renderCart();
         }
 
-        // --- 廚房出餐 ---
         function renderKitchenView() {
             const list = document.getElementById('kitchen-list');
-            list.innerHTML = kitchenQueue.length ? '' : '<center>尚無待辦</center>';
-            kitchenQueue.forEach(q => {
-                list.innerHTML += `<div class="card kitchen-task"><div><span style="background:#eee; padding:3px 8px; border-radius:5px;">桌號: <strong>${q.table}</strong></span> <small>${q.time}</small><div style="font-size:18px; font-weight:bold;">${q.name} x ${q.qty}</div>${q.remark?`<div style="color:red; font-size:14px;">備註: ${q.remark}</div>`:''}</div><button class="btn btn-green" style="width:auto;" onclick="markServed('${q.taskId}','${q.table}')">✅ 出餐</button></div>`;
+            list.innerHTML = '';
+            if(kitchenQueue.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding: 20px; color: #666;">目前沒有待出餐點 🎉</div>';
+                return;
+            }
+
+            kitchenQueue.forEach(task => {
+                let remarkHtml = task.remark ? `<div style="color: #FF3B30; font-size: 14px; margin-top: 5px;">📝 備註: ${task.remark}</div>` : '';
+                list.innerHTML += `
+                    <div class="card kitchen-task">
+                        <div>
+                            <span style="background: #eee; padding: 3px 8px; border-radius: 5px; font-size: 14px;">桌號: <strong>${task.table}</strong></span>
+                            <span style="color: #666; font-size: 14px; margin-left: 10px;">🕒 ${task.time}</span>
+                            <div style="font-size: 20px; font-weight: bold; margin-top: 8px;">
+                                ${task.name} <span style="color: var(--primary);">x ${task.qty}</span>
+                            </div>
+                            ${remarkHtml}
+                        </div>
+                        <button class="btn btn-green" style="width: auto; padding: 15px 20px; margin: 0;" onclick="markAsServed('${task.taskId}', '${task.table}')">✅ 出餐</button>
+                    </div>
+                `;
             });
         }
 
-        function markServed(id, t) {
-            kitchenQueue = kitchenQueue.filter(q => q.taskId !== id);
-            const item = tables[t].cart.find(it => it.taskId == id);
-            if(item) item.status = 'served';
-            saveData(); renderKitchenView();
+        function markAsServed(taskId, tableNum) {
+            kitchenQueue = kitchenQueue.filter(task => task.taskId !== taskId);
+            if(tables[tableNum]) {
+                const cartItem = tables[tableNum].cart.find(c => c.taskId === taskId);
+                if(cartItem) cartItem.status = 'served';
+            }
+            saveData();
+            renderKitchenView();
         }
 
-        // --- 結帳 ---
-        function checkout(m) {
+        function checkout(paymentMethod) {
             const cart = tables[currentTable].cart;
-            if(!cart.length) return alert('空桌');
-            if(kitchenQueue.some(q => q.table === currentTable)) if(!confirm('尚有餐點製作中，確定結帳？')) return;
-            history.push({ table: currentTable, pax: tables[currentTable].pax, total: parseInt(document.getElementById('cart-total').innerText), method: m, time: new Date().toLocaleTimeString(), items: JSON.parse(JSON.stringify(cart)) });
+            if(cart.length === 0) return alert('這桌是空的，無須結帳！');
+            
+            const hasUnserved = kitchenQueue.some(task => task.table === currentTable);
+            if(hasUnserved) {
+                if(!confirm(`⚠️ ${currentTable} 還有餐點在廚房尚未出餐，確定要直接結帳嗎？`)) return;
+            }
+
+            let total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const cartDetails = JSON.parse(JSON.stringify(cart));
+            
+            history.push({
+                table: currentTable,
+                pax: tables[currentTable].pax,
+                total: total,
+                method: paymentMethod,
+                time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+                items: cartDetails 
+            });
+
+            // 結帳後清空購物車與併桌標記
             tables[currentTable] = { pax: 0, cart: [], mergeNote: "" };
-            kitchenQueue = kitchenQueue.filter(q => q.table !== currentTable);
-            saveData(); alert('結帳完成'); loadTableData();
+            kitchenQueue = kitchenQueue.filter(task => task.table !== currentTable);
+
+            saveData();
+            alert(`💰 結帳完成！\n方式：${paymentMethod}\n總計：$${total}\n(${currentTable} 已清空)`);
+            loadTableData(); 
         }
 
-        // --- 菜單與帳務 ---
-        function addMenuItem() {
-            const name = document.getElementById('new-item-name').value;
-            const price = parseInt(document.getElementById('new-item-price').value);
-            const category = document.getElementById('new-item-category').value;
-            if(!name || !price) return alert('資訊不全');
-            menu.push({ id: Date.now(), name, price, category });
-            saveData(); renderMenuAdmin();
-        }
-        function removeMenuItem(idx) { menu.splice(idx, 1); saveData(); renderMenuAdmin(); }
-        function renderMenuAdmin() {
-            const list = document.getElementById('admin-menu-list'); list.innerHTML = '';
-            menu.forEach((it, idx) => list.innerHTML += `<div class="list-item"><span>${it.name} ($${it.price})</span><button onclick="removeMenuItem(${idx})" class="btn-red" style="padding:5px;">刪除</button></div>`);
-        }
         function addExpense() {
-            const n = document.getElementById('expense-name').value;
-            const a = parseInt(document.getElementById('expense-amount').value);
-            if(!n || !a) return alert('不全');
-            expenses.push({ name: n, amount: a }); saveData(); renderSummary();
+            const name = document.getElementById('expense-name').value;
+            const amount = parseInt(document.getElementById('expense-amount').value);
+            
+            if (!name || !amount) return alert('請填寫支出項目與金額！');
+            
+            expenses.push({ name, amount });
+            document.getElementById('expense-name').value = '';
+            document.getElementById('expense-amount').value = '';
+            
+            saveData();
+            renderSummary();
         }
-        function removeExpense(idx) { expenses.splice(idx,1); saveData(); renderSummary(); }
+
+        function removeExpense(index) {
+            expenses.splice(index, 1);
+            saveData();
+            renderSummary();
+        }
+
         function renderSummary() {
-            let total=0, cash=0, lp=0, exp=0;
-            const list = document.getElementById('history-list'); list.innerHTML = '';
-            history.slice().reverse().forEach(h => {
-                total += h.total; if(h.method==='現金') cash += h.total; else lp += h.total;
-                list.innerHTML += `<div class="history-card"><div class="history-header"><strong>${h.table}</strong> | ${h.method} | ${h.time}</div><div>${h.items.map(it=>`🔸${it.name}x${it.qty}`).join('<br>')}</div><div style="text-align:right; color:red;">$${h.total}</div></div>`;
+            let totalRevenue = 0;
+            let cashTotal = 0;
+            let linepayTotal = 0;
+
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+
+            const reversedHistory = [...history].reverse();
+            reversedHistory.forEach(record => {
+                totalRevenue += record.total;
+                if (record.method === '現金') cashTotal += record.total;
+                if (record.method === 'LINE Pay') linepayTotal += record.total;
+                
+                let itemsHtml = '';
+                if(record.items && record.items.length > 0) {
+                    record.items.forEach(item => {
+                        itemsHtml += `<div>🔸 ${item.name} x ${item.qty} <span style="float:right;">$${item.price * item.qty}</span></div>`;
+                    });
+                } else {
+                    itemsHtml = '<div style="color:#999;">(無明細紀錄)</div>';
+                }
+
+                list.innerHTML += `
+                    <div class="history-card">
+                        <div class="history-header">
+                            <span>桌號 <strong>${record.table}</strong> | ${record.method}</span>
+                            <span>🕒 ${record.time}</span>
+                        </div>
+                        <div class="history-items">
+                            ${itemsHtml}
+                        </div>
+                        <div style="text-align: right; margin-top: 5px; font-size: 16px; font-weight: bold; color: #FF3B30;">
+                            總計: $${record.total}
+                        </div>
+                    </div>
+                `;
             });
-            const expList = document.getElementById('expense-list'); expList.innerHTML = '';
-            expenses.forEach((e,i) => { exp += e.amount; expList.innerHTML += `<div class="list-item"><span>${e.name}</span><span>$${e.amount} <button onclick="removeExpense(${i})">x</button></span></div>`; });
-            document.getElementById('dash-revenue').innerText = `$${total}`;
-            document.getElementById('dash-expense').innerText = `$${exp}`;
-            document.getElementById('dash-cash').innerText = `$${cash}`;
-            document.getElementById('dash-linepay').innerText = `$${lp}`;
-            document.getElementById('dash-profit').innerText = `$${total - exp}`;
+
+            const expList = document.getElementById('expense-list');
+            expList.innerHTML = '';
+            let totalExpense = 0;
+            
+            expenses.forEach((exp, index) => {
+                totalExpense += exp.amount;
+                expList.innerHTML += `
+                    <div class="list-item" style="border-bottom: 1px dashed #ccc; padding: 5px 0;">
+                        <span>🛒 ${exp.name}</span>
+                        <div>
+                            <span style="color:#FF3B30; margin-right:10px;">$${exp.amount}</span>
+                            <button onclick="removeExpense(${index})" style="background:#eee; color:#FF3B30; border:none; padding:3px 8px; border-radius:5px;">刪除</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (expenses.length === 0) {
+                expList.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding:10px;">目前尚無支出紀錄</div>';
+            }
+
+            let netProfit = totalRevenue - totalExpense;
+
+            document.getElementById('dash-revenue').innerText = `$${totalRevenue}`;
+            document.getElementById('dash-expense').innerText = `$${totalExpense}`;
+            document.getElementById('dash-cash').innerText = `$${cashTotal}`;
+            document.getElementById('dash-linepay').innerText = `$${linepayTotal}`;
+            document.getElementById('dash-profit').innerText = `$${netProfit}`;
         }
 
         function endOfDay() {
-            if(confirm('清空今日所有紀錄？')) {
-                history = []; kitchenQueue = []; expenses = []; reservations = [];
+            if(confirm('確定要執行日結嗎？這將會清空今日所有「帳單紀錄」、「支出明細」與「訂位資料」！')) {
+                history = [];
+                kitchenQueue = []; 
+                expenses = []; 
+                reservations = []; 
+                
                 for(let t in tables) tables[t] = { pax: 0, cart: [], mergeNote: "" };
-                saveData(); renderSummary(); alert('日結完成');
+                
+                saveData();
+                renderSummary();
+                if(document.getElementById('reservation-view').classList.contains('active')) renderReservations();
+                alert('日結完成，系統已歸零準備迎接明天！');
             }
         }
 
         function saveData() {
-            localStorage.setItem('pos_menu_v6', JSON.stringify(menu));
+            localStorage.setItem('pos_menu_v5', JSON.stringify(menu));
             localStorage.setItem('pos_tables', JSON.stringify(tables));
             localStorage.setItem('pos_kitchen', JSON.stringify(kitchenQueue));
             localStorage.setItem('pos_history', JSON.stringify(history));
-            localStorage.setItem('pos_expenses', JSON.stringify(expenses));
-            localStorage.setItem('pos_reservations', JSON.stringify(reservations));
+            localStorage.setItem('pos_expenses', JSON.stringify(expenses)); 
+            localStorage.setItem('pos_reservations', JSON.stringify(reservations)); 
         }
 
         renderOrderView();
