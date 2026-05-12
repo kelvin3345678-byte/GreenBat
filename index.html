@@ -42,7 +42,7 @@
         .dash-title { font-size: 12px; color: #666; display: block; margin-bottom: 5px; }
         .dash-value { font-size: 20px; font-weight: bold; }
 
-        /* 💡 新增：用餐人數按鈕排版 */
+        /* 用餐人數按鈕排版 */
         .pax-control { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
         .pax-control input { margin: 0; text-align: center; flex: 1; font-weight: bold; font-size: 18px;}
         .pax-btn { background: #e5e5ea; border: none; font-size: 22px; font-weight: bold; border-radius: 8px; width: 45px; height: 45px; cursor: pointer; color: var(--primary); display: flex; align-items: center; justify-content: center;}
@@ -51,15 +51,13 @@
 </head>
 <body>
 
-    <!-- 導覽列 -->
     <nav>
         <button id="tab-order" class="active" onclick="switchTab('order')">桌位/點餐</button>
-        <button id="tab-kitchen" onclick="switchTab('kitchen')">廚房出餐</button>
+        <button id="tab-kitchen" onclick="switchTab('kitchen')">👨‍🍳 廚房出餐</button>
         <button id="tab-menu" onclick="switchTab('menu')">菜單管理</button>
         <button id="tab-summary" onclick="switchTab('summary')">今日帳務</button>
     </nav>
 
-    <!-- 1. 點餐與結帳介面 -->
     <div id="order-view" class="container active">
         <div class="card">
             <label>選擇桌號：</label>
@@ -72,7 +70,6 @@
             </select>
             
             <label>用餐人數：</label>
-            <!-- 💡 新增：可加減的人數按鈕區塊 -->
             <div class="pax-control">
                 <button class="pax-btn" onclick="changePax(-1)">-</button>
                 <input type="number" id="pax-input" placeholder="人數" value="2" onchange="saveTableData()">
@@ -101,7 +98,7 @@
             <div class="total-price">總計: $<span id="cart-total">0</span></div>
             
             <label>本次點餐備註：</label>
-            <textarea id="order-remark" placeholder="例如：麵分開裝、盡快上菜、不要蔥..."></textarea>
+            <textarea id="order-remark" placeholder="例如：麵分開裝、盡快上菜、風味拿鐵要焦糖..."></textarea>
             
             <button class="btn btn-orange" onclick="sendOrder()">📤 送出點餐至廚房</button>
 
@@ -113,7 +110,6 @@
         </div>
     </div>
 
-    <!-- 2. 廚房出餐介面 -->
     <div id="kitchen-view" class="container">
         <div class="card">
             <h3>待出餐排序 (越上層越早點)</h3>
@@ -121,7 +117,6 @@
         </div>
     </div>
 
-    <!-- 3. 菜單管理介面 -->
     <div id="menu-view" class="container">
         <div class="card">
             <h3>新增品項</h3>
@@ -139,12 +134,10 @@
         </div>
     </div>
 
-    <!-- 4. 今日帳務介面 (大幅更新) -->
     <div id="summary-view" class="container">
         <div class="card">
             <h3>營業統計</h3>
             
-            <!-- 數據網格 -->
             <div class="dashboard-grid">
                 <div class="dash-box" style="background: #e5e5ea;">
                     <span class="dash-title">💰 總營業額</span>
@@ -164,7 +157,6 @@
                 </div>
             </div>
 
-            <!-- 淨利特寫 -->
             <div class="dash-box" style="background: #fff3e0; border: 2px solid #FF9500;">
                 <span class="dash-title" style="font-size: 14px;">🏆 今日淨利 (營業額 - 支出)</span>
                 <span class="dash-value" style="font-size: 28px; color: #FF9500;" id="dash-profit">$0</span>
@@ -188,12 +180,49 @@
     </div>
 
     <script>
-        // --- 系統資料狀態 ---
-        let menu = JSON.parse(localStorage.getItem('pos_menu')) || [
-            { id: 1, name: '牛肉麵', price: 150, category: '食物' },
-            { id: 2, name: '燙青菜', price: 40, category: '食物' },
-            { id: 3, name: '紅茶', price: 30, category: '飲品' }
+        // --- 💡 全新完整預設菜單 ---
+        const defaultMenu = [
+            // 咖啡類
+            { id: 101, name: '美式咖啡 (冰)', price: 150, category: '飲品' },
+            { id: 102, name: '美式咖啡 (熱)', price: 150, category: '飲品' },
+            { id: 103, name: '西西里咖啡 (冰)', price: 180, category: '飲品' },
+            { id: 104, name: '拿鐵 (冰)', price: 180, category: '飲品' },
+            { id: 105, name: '拿鐵 (熱)', price: 180, category: '飲品' },
+            { id: 106, name: '風味拿鐵(冰) [焦糖/烤花生/榛果/蜂蜜]', price: 190, category: '飲品' },
+            { id: 107, name: '風味拿鐵(熱) [焦糖/烤花生/榛果/蜂蜜]', price: 190, category: '飲品' },
+            
+            // 茶品類
+            { id: 201, name: '阿薩姆紅茶 (冰)', price: 150, category: '飲品' },
+            { id: 202, name: '阿薩姆紅茶 (熱)', price: 150, category: '飲品' },
+            { id: 203, name: '鮮奶茶 (冰)', price: 170, category: '飲品' },
+            { id: 204, name: '鮮奶茶 (熱)', price: 170, category: '飲品' },
+            { id: 205, name: '蜂蜜紅茶 (冰)', price: 160, category: '飲品' },
+            { id: 206, name: '蜂蜜紅茶 (熱)', price: 160, category: '飲品' },
+            { id: 207, name: '蜂蜜鮮奶茶 (冰)', price: 180, category: '飲品' },
+            { id: 208, name: '蜂蜜鮮奶茶 (熱)', price: 180, category: '飲品' },
+            { id: 209, name: '紫蘇紅茶 (冰)', price: 160, category: '飲品' },
+            { id: 210, name: '紫蘇紅茶 (熱)', price: 160, category: '飲品' },
+            { id: 211, name: '高冷玉烏龍 (熱/可回沖)', price: 200, category: '飲品' },
+            { id: 212, name: '乳香金萱 (熱/可回沖)', price: 180, category: '飲品' },
+            { id: 213, name: '南非國寶茶(無咖啡因) (熱/可回沖)', price: 180, category: '飲品' },
+            { id: 214, name: '安神花草茶[玫瑰/薰衣草] (熱/可回沖)', price: 180, category: '飲品' },
+            
+            // 新增飲品
+            { id: 301, name: '漂浮可樂 (冰)', price: 170, category: '飲品' },
+            { id: 302, name: '漂浮咖啡 (冰)', price: 170, category: '飲品' },
+            { id: 303, name: '可可 (冰)', price: 180, category: '飲品' },
+            { id: 304, name: '可可 (熱)', price: 180, category: '飲品' },
+
+            // 新增食物
+            { id: 401, name: '牛肉丼飯', price: 230, category: '食物' },
+            { id: 402, name: '豬肉丼飯', price: 220, category: '食物' },
+            { id: 403, name: '起司拼盤', price: 380, category: '食物' },
+            { id: 404, name: '水餃', price: 150, category: '食物' }
         ];
+
+        // --- 系統資料狀態 ---
+        // 💡 更改了 localStorage 的 Key 為 pos_menu_v2，強制載入全新的菜單
+        let menu = JSON.parse(localStorage.getItem('pos_menu_v2')) || defaultMenu;
         
         let tables = JSON.parse(localStorage.getItem('pos_tables')) || {};
         for (let i = 1; i <= 5; i++) {
@@ -318,14 +347,13 @@
             renderCart();
         }
 
-        // 💡 新增：控制人數加減的邏輯
         function changePax(delta) {
             let input = document.getElementById('pax-input');
             let currentVal = parseInt(input.value) || 0;
             let newVal = currentVal + delta;
-            if (newVal < 0) newVal = 0; // 防呆，人數不能小於 0
+            if (newVal < 0) newVal = 0; 
             input.value = newVal;
-            saveTableData(); // 儲存人數狀態
+            saveTableData(); 
         }
 
         function saveTableData() {
@@ -596,7 +624,8 @@
 
         // --- 資料持久化 ---
         function saveData() {
-            localStorage.setItem('pos_menu', JSON.stringify(menu));
+            // 💡 對應更新了儲存的 Key
+            localStorage.setItem('pos_menu_v2', JSON.stringify(menu));
             localStorage.setItem('pos_tables', JSON.stringify(tables));
             localStorage.setItem('pos_kitchen', JSON.stringify(kitchenQueue));
             localStorage.setItem('pos_history', JSON.stringify(history));
