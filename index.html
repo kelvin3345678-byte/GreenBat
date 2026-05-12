@@ -3,13 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>簡易點餐與出餐系統</title>
+    <title>GreenBat點餐與出餐系統</title>
     <style>
         :root { --primary: #007AFF; --bg: #F2F2F7; --text: #1C1C1E; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg); color: var(--text); }
-        nav { display: flex; background: white; padding: 10px; border-bottom: 1px solid #ccc; position: sticky; top: 0; z-index: 100; overflow-x: auto; white-space: nowrap;}
-        nav button { flex: 1; padding: 10px; margin: 0 3px; border: none; border-radius: 8px; background: #e5e5ea; font-size: 15px; cursor: pointer; min-width: 80px;}
+        
+        /* 💡 修正 1：導覽列加入平滑滾動，並隱藏滾動條 */
+        nav { display: flex; background: white; padding: 10px; border-bottom: 1px solid #ccc; position: sticky; top: 0; z-index: 100; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        nav::-webkit-scrollbar { display: none; } /* 隱藏 Chrome/Safari/iOS 滾動條 */
+        
+        /* 💡 修正 2：加入 flex-shrink: 0，確保按鈕絕對不會被擠壓變形 */
+        nav button { flex-shrink: 0; padding: 10px 15px; margin: 0 4px; border: none; border-radius: 8px; background: #e5e5ea; font-size: 15px; cursor: pointer; }
         nav button.active { background: var(--primary); color: white; }
+        
         .container { padding: 15px; display: none; }
         .container.active { display: block; }
         
@@ -48,7 +54,7 @@
         .pax-btn { background: #e5e5ea; border: none; font-size: 22px; font-weight: bold; border-radius: 8px; width: 45px; height: 45px; cursor: pointer; color: var(--primary); display: flex; align-items: center; justify-content: center;}
         .pax-btn:active { background: #d1d1d6; }
 
-        /* 💡 結帳核取方塊樣式 */
+        /* 結帳核取方塊樣式 */
         .item-checkout-cb { width: 22px; height: 22px; margin-right: 12px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
     </style>
 </head>
@@ -406,7 +412,6 @@
             addToCart(itemId);
         }
 
-        // 💡 修正 1：更新桌號與併桌下拉選單顯示邏輯
         function updateTableDisplay() {
             const select = document.getElementById('table-select');
             for (let i = 0; i < select.options.length; i++) {
@@ -425,9 +430,7 @@
                     }
                 }
                 
-                // 判斷是否為數字桌位，套用 "第 n 桌" 格式
                 let displayName = ['1','2','3','4','5'].includes(t) ? `第 ${t} 桌` : t;
-                // 併桌標記格式化
                 let mergeTag = tables[t].mergeNote ? ` (併桌 ${tables[t].mergeNote})` : "";
                 
                 select.options[i].text = `${displayName}${mergeTag} ${status}`;
@@ -485,7 +488,6 @@
             renderCart();
         }
 
-        // 💡 修正 2：動態更新結帳金額 (依據核取方塊)
         function updateCheckoutTotal() {
             const cart = tables[currentTable].cart;
             const checkboxes = document.querySelectorAll('.item-checkout-cb');
@@ -500,7 +502,6 @@
             document.getElementById('cart-total').innerText = selectedTotal;
         }
 
-        // 💡 修正 2：購物車內品項加入核取方塊
         function renderCart() {
             const cart = tables[currentTable].cart;
             const list = document.getElementById('cart-list');
@@ -533,7 +534,7 @@
             });
             
             updateTableDisplay();
-            updateCheckoutTotal(); // 每次渲染完自動計算勾選金額
+            updateCheckoutTotal(); 
         }
 
         function sendOrder() {
@@ -605,7 +606,6 @@
             renderKitchenView();
         }
 
-        // 💡 修正 2：分開結帳邏輯
         function checkout(paymentMethod) {
             const cart = tables[currentTable].cart;
             if(cart.length === 0) return alert('這桌是空的，無須結帳！');
@@ -618,14 +618,12 @@
 
             if (checkedIndices.length === 0) return alert('請先勾選要結帳的品項！');
 
-            // 由大到小排序，避免陣列移除時順序亂掉
             checkedIndices.sort((a, b) => b - a);
 
             let total = 0;
             let checkoutItems = [];
             let hasUnserved = false;
 
-            // 檢查勾選的品項中是否有未出餐的
             checkedIndices.forEach(idx => {
                 const item = cart[idx];
                 const inKitchen = kitchenQueue.some(q => q.taskId === item.taskId);
@@ -636,7 +634,6 @@
                 if(!confirm(`⚠️ 勾選的品項中包含尚未出餐的餐點，確定要結帳嗎？`)) return;
             }
 
-            // 處理結帳與扣除
             checkedIndices.forEach(idx => {
                 const item = cart[idx];
                 total += item.price * item.qty;
@@ -645,7 +642,7 @@
                 cart.splice(idx, 1);
             });
 
-            checkoutItems.reverse(); // 轉回原本的順序
+            checkoutItems.reverse(); 
 
             history.push({
                 table: currentTable,
@@ -659,7 +656,6 @@
             let displayName = ['1','2','3','4','5'].includes(currentTable) ? `第 ${currentTable} 桌` : currentTable;
 
             if (cart.length === 0) {
-                // 全部結清才清空桌位
                 tables[currentTable] = { pax: 0, cart: [], mergeNote: "" };
                 document.getElementById('merge-note').value = '';
                 document.getElementById('pax-input').value = '0';
