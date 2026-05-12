@@ -53,6 +53,7 @@
 
     <nav>
         <button id="tab-order" class="active" onclick="switchTab('order')">桌位/點餐</button>
+        <button id="tab-reservation" onclick="switchTab('reservation')">📝 訂位</button>
         <button id="tab-kitchen" onclick="switchTab('kitchen')">廚房出餐</button>
         <button id="tab-menu" onclick="switchTab('menu')">菜單管理</button>
         <button id="tab-summary" onclick="switchTab('summary')">今日帳務</button>
@@ -67,8 +68,8 @@
                 <option value="3">第 3 桌</option>
                 <option value="4">第 4 桌</option>
                 <option value="5">第 5 桌</option>
-                <option value="6">吧檯</option>
-		<option value="7">沙發區</option>
+                <option value="吧檯">吧檯</option>
+                <option value="沙發區">沙發區</option>
             </select>
             
             <label>用餐人數：</label>
@@ -109,6 +110,22 @@
                 <button class="btn btn-blue" onclick="checkout('現金')">💵 現金結帳</button>
                 <button class="btn btn-green" onclick="checkout('LINE Pay')">📱 LINE Pay 結帳</button>
             </div>
+        </div>
+    </div>
+
+    <div id="reservation-view" class="container">
+        <div class="card">
+            <h3>新增訂位</h3>
+            <p style="font-size: 14px; color: #666; margin-top: 0;">請依照 <b>名稱,時間,人數</b> 格式輸入 (逗號隔開)</p>
+            <div class="select-row">
+                <input type="text" id="res-input" placeholder="例如：程小姐,21:00,x2" style="flex: 1;">
+                <button class="btn btn-blue" onclick="addReservation()">新增</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>今日訂位列表 (依時間排序)</h3>
+            <div id="reservation-list"></div>
         </div>
     </div>
 
@@ -182,7 +199,7 @@
     </div>
 
     <script>
-        // --- 💡 修正後完整預設菜單 ---
+        // --- 💡 修正後完整預設菜單 (更新品名) ---
         const defaultMenu = [
             // 咖啡類
             { id: 101, name: '美式咖啡 (冰)', price: 150, category: '飲品' },
@@ -219,8 +236,8 @@
             // 新增特調飲品
             { id: 301, name: '漂浮可樂 (冰)', price: 170, category: '飲品' },
             { id: 302, name: '漂浮咖啡 (冰)', price: 170, category: '飲品' },
-            { id: 303, name: '鮮奶油可可飲料 (冰)', price: 180, category: '飲品' },
-            { id: 304, name: '鮮奶油可可飲料 (熱)', price: 180, category: '飲品' },
+            { id: 303, name: '鮮奶油可可飲 (冰)', price: 180, category: '飲品' },
+            { id: 304, name: '鮮奶油可可飲 (熱)', price: 180, category: '飲品' },
 
             // 新增食物
             { id: 401, name: '牛五花丼飯', price: 230, category: '食物' },
@@ -230,17 +247,19 @@
         ];
 
         // --- 系統資料狀態 ---
-        // 💡 更改了 localStorage 的 Key 為 pos_menu_v4，強制載入更新後的口味菜單
-        let menu = JSON.parse(localStorage.getItem('pos_menu_v4')) || defaultMenu;
+        let menu = JSON.parse(localStorage.getItem('pos_menu_v5')) || defaultMenu;
         
+        // 💡 座位擴充：加入吧檯與沙發區
         let tables = JSON.parse(localStorage.getItem('pos_tables')) || {};
-        for (let i = 1; i <= 5; i++) {
-            if (!tables[i.toString()]) tables[i.toString()] = { pax: 0, cart: [] };
-        }
+        const tableNames = ['1', '2', '3', '4', '5', '吧檯', '沙發區'];
+        tableNames.forEach(t => {
+            if (!tables[t]) tables[t] = { pax: 0, cart: [] };
+        });
 
         let kitchenQueue = JSON.parse(localStorage.getItem('pos_kitchen')) || [];
         let history = JSON.parse(localStorage.getItem('pos_history')) || [];
         let expenses = JSON.parse(localStorage.getItem('pos_expenses')) || []; 
+        let reservations = JSON.parse(localStorage.getItem('pos_reservations')) || []; // 💡 新增訂位狀態
         let currentTable = "1";
 
         // --- 頁面切換邏輯 ---
@@ -254,10 +273,78 @@
                 renderOrderView();
                 renderCart(); 
             }
+            if(tabName === 'reservation') renderReservations(); // 渲染訂位
             if(tabName === 'kitchen') renderKitchenView();
             if(tabName === 'menu') renderMenuAdmin();
             if(tabName === 'summary') renderSummary();
         }
+
+        // --- 💡 訂位系統功能 ---
+        function addReservation() {
+            let inputStr = document.getElementById('res-input').value.trim();
+            if(!inputStr) return;
+            
+            // 替換中文全形逗號為半形，避免格式解析錯誤
+            inputStr = inputStr.replace(/，/g, ',');
+            let parts = inputStr.split(',');
+            
+            if(parts.length < 3) {
+                alert('格式不正確！請確認包含名稱、時間、人數，並以逗號隔開。\n例如：程小姐,21:00,x2');
+                return;
+            }
+
+            reservations.push({
+                id: Date.now(),
+                name: parts[0].trim(),
+                time: parts[1].trim(),
+                pax: parts[2].trim(),
+                arrived: false // 預設狀態為等候中
+            });
+
+            document.getElementById('res-input').value = '';
+            saveData();
+            renderReservations();
+        }
+
+        function toggleReservation(id) {
+            let target = reservations.find(r => r.id == id);
+            if(target) {
+                target.arrived = !target.arrived; // 切換已來/未來的狀態
+                saveData();
+                renderReservations();
+            }
+        }
+
+        function renderReservations() {
+            const list = document.getElementById('reservation-list');
+            list.innerHTML = '';
+            
+            // 按時間順序排列 (字串比對 12:00 會在 13:00 前面)
+            reservations.sort((a, b) => a.time.localeCompare(b.time));
+
+            if(reservations.length === 0) {
+                list.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding:20px;">今日尚無訂位資料</div>';
+                return;
+            }
+
+            reservations.forEach(res => {
+                let btnClass = res.arrived ? "btn-green" : "btn-orange";
+                let btnText = res.arrived ? "✅ 已來" : "等候中";
+                let opacity = res.arrived ? "0.5" : "1"; // 已報到的視覺變淡
+
+                list.innerHTML += `
+                    <div class="list-item" style="opacity: ${opacity};">
+                        <div>
+                            <span style="font-size: 20px; font-weight: bold; color: var(--primary);">${res.time}</span>
+                            <span style="margin-left: 15px; font-size: 18px; font-weight: bold;">${res.name}</span>
+                            <span style="margin-left: 10px; color: #666; font-size: 14px;">(${res.pax})</span>
+                        </div>
+                        <button onclick="toggleReservation('${res.id}')" class="btn ${btnClass}" style="width: auto; padding: 10px 15px; margin: 0; min-width: 80px;">${btnText}</button>
+                    </div>
+                `;
+            });
+        }
+
 
         // --- 1. 菜單管理功能 ---
         function renderMenuAdmin() {
@@ -345,7 +432,7 @@
                         status = `(未結帳 $${cartTotal})`;
                     }
                 }
-                select.options[i].text = `第 ${t} 桌 ${status}`;
+                select.options[i].text = `${t} ${status}`;
             }
         }
 
@@ -456,7 +543,7 @@
 
             document.getElementById('order-remark').value = '';
             saveData();
-            alert(`✅ 第 ${currentTable} 桌點餐已送至廚房！`);
+            alert(`✅ ${currentTable} 點餐已送至廚房！`);
             renderCart();
         }
 
@@ -504,7 +591,7 @@
             
             const hasUnserved = kitchenQueue.some(task => task.table === currentTable);
             if(hasUnserved) {
-                if(!confirm(`⚠️ 第 ${currentTable} 桌還有餐點在廚房尚未出餐，確定要直接結帳嗎？`)) return;
+                if(!confirm(`⚠️ ${currentTable} 還有餐點在廚房尚未出餐，確定要直接結帳嗎？`)) return;
             }
 
             let total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
@@ -523,7 +610,7 @@
             kitchenQueue = kitchenQueue.filter(task => task.table !== currentTable);
 
             saveData();
-            alert(`💰 結帳完成！\n方式：${paymentMethod}\n總計：$${total}\n(第 ${currentTable} 桌已清空)`);
+            alert(`💰 結帳完成！\n方式：${paymentMethod}\n總計：$${total}\n(${currentTable} 已清空)`);
             loadTableData(); 
         }
 
@@ -618,27 +705,29 @@
         }
 
         function endOfDay() {
-            if(confirm('確定要執行日結嗎？這將會清空今日所有「帳單紀錄」與「支出明細」！')) {
+            if(confirm('確定要執行日結嗎？這將會清空今日所有「帳單紀錄」、「支出明細」與「訂位資料」！')) {
                 history = [];
                 kitchenQueue = []; 
                 expenses = []; 
+                reservations = []; // 日結時清空訂位
                 
                 for(let t in tables) tables[t] = { pax: 0, cart: [] };
                 
                 saveData();
                 renderSummary();
+                if(document.getElementById('reservation-view').classList.contains('active')) renderReservations();
                 alert('日結完成，系統已歸零準備迎接明天！');
             }
         }
 
         // --- 資料持久化 ---
         function saveData() {
-            // 💡 儲存的 Key 已更新為 pos_menu_v4，載入時會自動抓取修正後的菜單
-            localStorage.setItem('pos_menu_v4', JSON.stringify(menu));
+            localStorage.setItem('pos_menu_v5', JSON.stringify(menu));
             localStorage.setItem('pos_tables', JSON.stringify(tables));
             localStorage.setItem('pos_kitchen', JSON.stringify(kitchenQueue));
             localStorage.setItem('pos_history', JSON.stringify(history));
             localStorage.setItem('pos_expenses', JSON.stringify(expenses)); 
+            localStorage.setItem('pos_reservations', JSON.stringify(reservations)); // 💡 儲存訂位資料
         }
 
         // 系統啟動初始化
