@@ -3,19 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GreenBat點餐與出餐系統</title>
+    <title>簡易點餐與出餐系統</title>
     <style>
         :root { --primary: #007AFF; --bg: #F2F2F7; --text: #1C1C1E; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg); color: var(--text); }
-        
-        /* 💡 修正 1：導覽列加入平滑滾動，並隱藏滾動條 */
-        nav { display: flex; background: white; padding: 10px; border-bottom: 1px solid #ccc; position: sticky; top: 0; z-index: 100; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-        nav::-webkit-scrollbar { display: none; } /* 隱藏 Chrome/Safari/iOS 滾動條 */
-        
-        /* 💡 修正 2：加入 flex-shrink: 0，確保按鈕絕對不會被擠壓變形 */
-        nav button { flex-shrink: 0; padding: 10px 15px; margin: 0 4px; border: none; border-radius: 8px; background: #e5e5ea; font-size: 15px; cursor: pointer; }
+        nav { display: flex; background: white; padding: 10px; border-bottom: 1px solid #ccc; position: sticky; top: 0; z-index: 100; overflow-x: auto; white-space: nowrap;}
+        nav button { flex: 1; padding: 10px; margin: 0 3px; border: none; border-radius: 8px; background: #e5e5ea; font-size: 15px; cursor: pointer; min-width: 80px;}
         nav button.active { background: var(--primary); color: white; }
-        
         .container { padding: 15px; display: none; }
         .container.active { display: block; }
         
@@ -54,8 +48,9 @@
         .pax-btn { background: #e5e5ea; border: none; font-size: 22px; font-weight: bold; border-radius: 8px; width: 45px; height: 45px; cursor: pointer; color: var(--primary); display: flex; align-items: center; justify-content: center;}
         .pax-btn:active { background: #d1d1d6; }
 
-        /* 結帳核取方塊樣式 */
+        /* 結帳與核取方塊樣式 */
         .item-checkout-cb { width: 22px; height: 22px; margin-right: 12px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+        .checkout-qty-select { padding: 4px; margin: 0 10px 0 0; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; background: white;}
     </style>
 </head>
 <body>
@@ -108,9 +103,17 @@
         </div>
 
         <div class="card">
-            <h3>目前桌邊餐點 (可勾選分開結帳)</h3>
+            <h3>目前桌邊餐點 (可勾選與選擇數量結帳)</h3>
             <div id="cart-list"></div>
-            <div class="total-price">選取結帳總計: $<span id="cart-total">0</span></div>
+            
+            <!-- 💡 新增：折扣與實收總計區域 -->
+            <div style="border-top: 2px dashed #eee; margin-top: 15px; padding-top: 15px;">
+                <div style="font-size: 16px; color: #333; display: flex; justify-content: flex-end; align-items: center; margin-bottom: 5px;">
+                    <span style="color:#FF9500; font-size: 14px;">(促銷/買送一)</span> 折扣/折讓：-$ 
+                    <input type="number" id="checkout-discount" value="0" style="width: 80px; padding: 5px; margin-left: 10px; margin-bottom: 0; text-align: right;" onchange="updateCheckoutTotal()" onkeyup="updateCheckoutTotal()">
+                </div>
+                <div class="total-price" style="margin-top: 5px;">實收總計: $<span id="cart-total">0</span></div>
+            </div>
             
             <label>本次點餐備註：</label>
             <textarea id="order-remark" placeholder="例如：飯少、盡快上菜、拿鐵去冰..."></textarea>
@@ -245,7 +248,8 @@
             { id: 401, name: '牛五花丼飯', price: 230, category: '食物' },
             { id: 402, name: '豬五花丼飯', price: 220, category: '食物' },
             { id: 403, name: '香料火腿起司拼盤', price: 380, category: '食物' },
-            { id: 404, name: '高麗菜豬肉水餃', price: 150, category: '食物' }
+            { id: 404, name: '高麗菜豬肉水餃', price: 150, category: '食物' },
+            { id: 501, name: '生啤酒', price: 150, category: '飲品' } // 測試促銷用
         ];
 
         let menu = JSON.parse(localStorage.getItem('pos_menu_v5')) || defaultMenu;
@@ -442,6 +446,7 @@
             document.getElementById('pax-input').value = tables[currentTable].pax || '';
             document.getElementById('merge-note').value = tables[currentTable].mergeNote || ''; 
             document.getElementById('order-remark').value = '';
+            document.getElementById('checkout-discount').value = '0'; // 切換桌號時重置折扣
             renderCart();
         }
 
@@ -488,6 +493,7 @@
             renderCart();
         }
 
+        // 💡 新增：動態計算有被勾選且選擇數量的總金額與折扣
         function updateCheckoutTotal() {
             const cart = tables[currentTable].cart;
             const checkboxes = document.querySelectorAll('.item-checkout-cb');
@@ -496,10 +502,17 @@
             checkboxes.forEach(cb => {
                 if (cb.checked) {
                     let idx = parseInt(cb.dataset.index);
-                    selectedTotal += cart[idx].price * cart[idx].qty;
+                    let qtySelect = document.getElementById('checkout-qty-' + idx);
+                    let checkoutQty = qtySelect ? parseInt(qtySelect.value) : cart[idx].qty;
+                    selectedTotal += cart[idx].price * checkoutQty;
                 }
             });
-            document.getElementById('cart-total').innerText = selectedTotal;
+            
+            // 扣除手動輸入的折扣金額 (解決買三送一問題)
+            let discount = parseInt(document.getElementById('checkout-discount').value) || 0;
+            let finalTotal = Math.max(0, selectedTotal - discount);
+            
+            document.getElementById('cart-total').innerText = finalTotal;
         }
 
         function renderCart() {
@@ -522,13 +535,26 @@
                     actionBtn = '<span style="font-size:13px; color:#34C759; font-weight:bold;">✅ 已出餐</span>';
                 }
 
+                // 💡 新增：若數量大於 1，顯示數量下拉選單供部分結帳
+                let qtySelectHtml = '';
+                if (item.qty > 1) {
+                    qtySelectHtml = `<select id="checkout-qty-${index}" class="checkout-qty-select" onchange="updateCheckoutTotal()">`;
+                    for(let i = 1; i <= item.qty; i++) {
+                        qtySelectHtml += `<option value="${i}" ${i === item.qty ? 'selected' : ''}>結 ${i}</option>`;
+                    }
+                    qtySelectHtml += `</select>`;
+                }
+
                 list.innerHTML += `
                     <div class="list-item">
                         <div style="display: flex; align-items: center;">
                             <input type="checkbox" class="item-checkout-cb" data-index="${index}" onchange="updateCheckoutTotal()" checked>
-                            <span>${item.name} x ${item.qty} ${statusBadge}<br><small style="color:#666;">$${item.price * item.qty}</small></span>
+                            <span>${item.name} x ${item.qty} ${statusBadge}<br><small style="color:#666;">單價 $${item.price}</small></span>
                         </div>
-                        ${actionBtn}
+                        <div style="display: flex; align-items: center;">
+                            ${qtySelectHtml}
+                            ${actionBtn}
+                        </div>
                     </div>
                 `;
             });
@@ -606,6 +632,7 @@
             renderKitchenView();
         }
 
+        // 💡 修正 3：部分結帳與數量扣除邏輯
         function checkout(paymentMethod) {
             const cart = tables[currentTable].cart;
             if(cart.length === 0) return alert('這桌是空的，無須結帳！');
@@ -618,9 +645,10 @@
 
             if (checkedIndices.length === 0) return alert('請先勾選要結帳的品項！');
 
+            // 由大到小排序，避免陣列 splice 時索引亂掉
             checkedIndices.sort((a, b) => b - a);
 
-            let total = 0;
+            let subTotal = 0;
             let checkoutItems = [];
             let hasUnserved = false;
 
@@ -636,18 +664,35 @@
 
             checkedIndices.forEach(idx => {
                 const item = cart[idx];
-                total += item.price * item.qty;
-                checkoutItems.push(JSON.parse(JSON.stringify(item)));
-                kitchenQueue = kitchenQueue.filter(task => task.taskId !== item.taskId);
-                cart.splice(idx, 1);
+                let qtySelect = document.getElementById('checkout-qty-' + idx);
+                let checkoutQty = qtySelect ? parseInt(qtySelect.value) : item.qty;
+                
+                subTotal += item.price * checkoutQty;
+                
+                // 記錄至帳單明細
+                let recordItem = JSON.parse(JSON.stringify(item));
+                recordItem.qty = checkoutQty;
+                checkoutItems.push(recordItem);
+                
+                // 扣除購物車數量
+                item.qty -= checkoutQty;
+                
+                if (item.qty <= 0) {
+                    kitchenQueue = kitchenQueue.filter(task => task.taskId !== item.taskId);
+                    cart.splice(idx, 1);
+                }
             });
 
             checkoutItems.reverse(); 
 
+            let discount = parseInt(document.getElementById('checkout-discount').value) || 0;
+            let finalTotal = Math.max(0, subTotal - discount);
+
             history.push({
                 table: currentTable,
                 pax: tables[currentTable].pax,
-                total: total,
+                total: finalTotal,
+                discount: discount, // 記錄折扣
                 method: paymentMethod,
                 time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
                 items: checkoutItems 
@@ -659,9 +704,11 @@
                 tables[currentTable] = { pax: 0, cart: [], mergeNote: "" };
                 document.getElementById('merge-note').value = '';
                 document.getElementById('pax-input').value = '0';
-                alert(`💰 結帳完成！\n方式：${paymentMethod}\n總計：$${total}\n(${displayName} 已全數結清並清空)`);
+                document.getElementById('checkout-discount').value = '0';
+                alert(`💰 結帳完成！\n方式：${paymentMethod}\n實收：$${finalTotal}\n(${displayName} 已全數結清並清空)`);
             } else {
-                alert(`💰 部分結帳完成！\n方式：${paymentMethod}\n總計：$${total}\n(未結帳品項仍保留於桌上)`);
+                document.getElementById('checkout-discount').value = '0';
+                alert(`💰 部分結帳完成！\n方式：${paymentMethod}\n實收：$${finalTotal}\n(未結帳品項仍保留於桌上)`);
             }
 
             saveData();
@@ -712,6 +759,9 @@
                 }
                 
                 let displayTable = ['1','2','3','4','5'].includes(record.table) ? `第 ${record.table} 桌` : record.table;
+                
+                // 若有折扣，則顯示於明細
+                let discountHtml = record.discount ? `<small style="color:#FF9500; font-weight:normal;">(含折扣 -$${record.discount})</small> ` : '';
 
                 list.innerHTML += `
                     <div class="history-card">
@@ -723,6 +773,7 @@
                             ${itemsHtml}
                         </div>
                         <div style="text-align: right; margin-top: 5px; font-size: 16px; font-weight: bold; color: #FF3B30;">
+                            ${discountHtml}
                             總計: $${record.total}
                         </div>
                     </div>
