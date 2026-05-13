@@ -26,30 +26,25 @@
         .list-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; align-items: center;}
         .total-price { font-size: 24px; font-weight: bold; text-align: right; margin: 15px 0; color: #FF3B30; }
         
-        /* 廚房與歷史訂單卡片 */
         .kitchen-task { border-left: 6px solid #FF9500; display: flex; justify-content: space-between; align-items: center; }
         .history-card { padding: 12px; border: 1px solid #e5e5ea; border-radius: 8px; margin-bottom: 10px; background: #fafafa; }
         .history-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #ccc; padding-bottom: 8px; margin-bottom: 8px; font-size: 14px;}
         .history-items { font-size: 13px; color: #555; line-height: 1.6; }
         
-        /* 表單排版 */
         .select-row { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; }
         .select-row select, .select-row input { margin: 0; }
         .select-row button { margin: 0; width: auto; padding: 10px 20px; }
 
-        /* 儀表板排版 */
         .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .dash-box { padding: 10px; border-radius: 8px; text-align: center; }
         .dash-title { font-size: 12px; color: #666; display: block; margin-bottom: 5px; }
         .dash-value { font-size: 20px; font-weight: bold; }
 
-        /* 用餐人數按鈕排版 */
         .pax-control { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
         .pax-control input { margin: 0; text-align: center; flex: 1; font-weight: bold; font-size: 18px;}
         .pax-btn { background: #e5e5ea; border: none; font-size: 22px; font-weight: bold; border-radius: 8px; width: 45px; height: 45px; cursor: pointer; color: var(--primary); display: flex; align-items: center; justify-content: center;}
         .pax-btn:active { background: #d1d1d6; }
 
-        /* 結帳與核取方塊樣式 */
         .item-checkout-cb { width: 22px; height: 22px; margin-right: 12px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
         .checkout-qty-select { padding: 4px; margin: 0 10px 0 0; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; background: white;}
     </style>
@@ -102,11 +97,17 @@
                 <select id="drink-select" style="flex:1;"></select>
                 <button class="btn btn-blue" onclick="addFromSelect('drink-select')">加入</button>
             </div>
+
+            <!-- 💡 新增：酒類選單 -->
+            <label>🍺 酒類：</label>
+            <div class="select-row">
+                <select id="alcohol-select" style="flex:1;"></select>
+                <button class="btn btn-blue" onclick="addFromSelect('alcohol-select')">加入</button>
+            </div>
         </div>
 
         <div class="card">
             <h3>目前桌邊餐點</h3>
-            <!-- 💡 新增：全選與全不選按鈕 -->
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <button class="btn btn-blue" style="padding: 8px; margin: 0; flex: 1;" onclick="toggleAllCheckout(true)">☑️ 全選</button>
                 <button class="btn" style="background: #e5e5ea; color: #333; padding: 8px; margin: 0; flex: 1;" onclick="toggleAllCheckout(false)">☐ 全不選</button>
@@ -130,7 +131,6 @@
             <div style="margin-top: 25px; border-top: 2px dashed #ccc; padding-top: 15px;">
                 <h4 style="margin-top: 0; color: #666;">👇 勾選品項結帳區</h4>
                 <button class="btn btn-blue" onclick="checkout('現金')">💵 現金結帳</button>
-                <!-- 💡 修正：更名為轉帳 -->
                 <button class="btn btn-green" onclick="checkout('轉帳')">📱 轉帳結帳</button>
             </div>
         </div>
@@ -167,6 +167,7 @@
             <select id="new-item-category">
                 <option value="食物">食物</option>
                 <option value="飲品">飲品</option>
+                <option value="酒">酒</option>
             </select>
             <button class="btn btn-blue" onclick="addMenuItem()">新增至菜單</button>
         </div>
@@ -193,10 +194,14 @@
                     <span class="dash-title">💵 現金收入</span>
                     <span class="dash-value" style="color: #34C759;" id="dash-cash">$0</span>
                 </div>
-                <!-- 💡 修正：更名為轉帳 -->
                 <div class="dash-box" style="background: #e3f2fd;">
                     <span class="dash-title">📱 轉帳收入</span>
                     <span class="dash-value" style="color: #007AFF;" id="dash-transfer">$0</span>
+                </div>
+                <!-- 💡 新增：未結帳金額 -->
+                <div class="dash-box" style="background: #fff8e1; grid-column: span 2;">
+                    <span class="dash-title">⏳ 尚未結帳總金額 (仍在場客人)</span>
+                    <span class="dash-value" style="color: #FFB300;" id="dash-unsettled">$0</span>
                 </div>
             </div>
 
@@ -218,34 +223,22 @@
             <h3>帳單紀錄 (含明細)</h3>
             <div id="history-list"></div>
             <br>
-            <button class="btn btn-red" onclick="endOfDay()">執行日結 (清空今日所有紀錄)</button>
+            <button class="btn btn-red" onclick="endOfDay()">執行日結 (歸零並產生統計)</button>
         </div>
     </div>
 
-    <!-- 💡 新增：銷售統計分頁 -->
+    <!-- 💡 修改：歷史銷售統計分頁 -->
     <div id="stats-view" class="container">
-        <div class="card">
-            <h3>整體營收概覽</h3>
-            <div class="dashboard-grid">
-                <div class="dash-box" style="background: #e5e5ea;">
-                    <span class="dash-title">💰 總營業額</span>
-                    <span class="dash-value" id="stats-total-revenue">$0</span>
-                </div>
-                <div class="dash-box" style="background: #ffebee;">
-                    <span class="dash-title">💸 總支出</span>
-                    <span class="dash-value" style="color: #FF3B30;" id="stats-total-expense">$0</span>
-                </div>
-            </div>
-            
-            <h3 style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">📊 餐點銷售排行 (備料參考)</h3>
-            <div id="stats-item-list">
-                <!-- 統計資料渲染於此 -->
-            </div>
+        <h2 style="margin-top: 0; color: var(--primary);">📈 歷史銷售統計</h2>
+        <p style="font-size: 14px; color: #666; margin-top: -10px; margin-bottom: 20px;">資料於每次執行「日結」後自動產生並永久保留。</p>
+        <div id="stats-daily-list">
+            <!-- 歷史日結統計卡片渲染於此 -->
         </div>
     </div>
 
     <script>
         const defaultMenu = [
+            // 咖啡類
             { id: 101, name: '美式咖啡 (冰)', price: 150, category: '飲品' },
             { id: 102, name: '美式咖啡 (熱)', price: 150, category: '飲品' },
             { id: 103, name: '西西里咖啡 (冰)', price: 180, category: '飲品' },
@@ -280,10 +273,34 @@
             { id: 402, name: '豬五花丼飯', price: 220, category: '食物' },
             { id: 403, name: '香料火腿起司拼盤', price: 380, category: '食物' },
             { id: 404, name: '高麗菜豬肉水餃', price: 150, category: '食物' },
-            { id: 501, name: '生啤酒', price: 150, category: '飲品' }
+            
+            // 💡 新增：酒類品項
+            { id: 501, name: '生啤酒', price: 180, category: '酒' },
+            { id: 502, name: '奶油檸檬餅乾', price: 400, category: '酒' },
+            { id: 503, name: '部落藍調', price: 330, category: '酒' },
+            { id: 504, name: '長髮男', price: 330, category: '酒' },
+            { id: 505, name: '老闆認為是美國派', price: 330, category: '酒' },
+            { id: 506, name: '條通的滋味', price: 300, category: '酒' },
+            { id: 507, name: '蜂蜜琴費司', price: 330, category: '酒' },
+            { id: 508, name: '白色佳人', price: 330, category: '酒' },
+            { id: 509, name: '柯夢波丹', price: 330, category: '酒' },
+            { id: 510, name: '海風', price: 310, category: '酒' },
+            { id: 511, name: '鹹狗', price: 310, category: '酒' },
+            { id: 512, name: '白/黑俄羅斯', price: 310, category: '酒' },
+            { id: 513, name: '瑪格麗特', price: 330, category: '酒' },
+            { id: 514, name: '藍色夏威夷', price: 330, category: '酒' },
+            { id: 515, name: '藍色珊瑚礁', price: 330, category: '酒' },
+            { id: 516, name: '長灘辣妹冰茶', price: 380, category: '酒' },
+            { id: 517, name: '發瘋長島冰茶', price: 380, category: '酒' },
+            { id: 518, name: '東京冰茶姬', price: 380, category: '酒' },
+            { id: 519, name: '靈魂登出哥', price: 380, category: '酒' },
+            { id: 520, name: '順啦', price: 330, category: '酒' },
+            { id: 521, name: '青箭口香奶', price: 330, category: '酒' },
+            { id: 522, name: '奶油女孩的最愛', price: 330, category: '酒' }
         ];
 
-        let menu = JSON.parse(localStorage.getItem('pos_menu_v5')) || defaultMenu;
+        // 💡 修改：強制更新金鑰為 v6 以載入完整酒單
+        let menu = JSON.parse(localStorage.getItem('pos_menu_v6')) || defaultMenu;
         
         let tables = JSON.parse(localStorage.getItem('pos_tables')) || {};
         const tableNames = ['1', '2', '3', '4', '5', '吧檯', '沙發區'];
@@ -295,6 +312,9 @@
         let history = JSON.parse(localStorage.getItem('pos_history')) || [];
         let expenses = JSON.parse(localStorage.getItem('pos_expenses')) || []; 
         let reservations = JSON.parse(localStorage.getItem('pos_reservations')) || []; 
+        // 💡 新增：歷史日報表資料庫
+        let dailyStats = JSON.parse(localStorage.getItem('pos_daily_stats')) || []; 
+        
         let currentTable = "1";
 
         function switchTab(tabName) {
@@ -311,7 +331,7 @@
             if(tabName === 'kitchen') renderKitchenView();
             if(tabName === 'menu') renderMenuAdmin();
             if(tabName === 'summary') renderSummary();
-            if(tabName === 'stats') renderStats(); // 💡 觸發統計渲染
+            if(tabName === 'stats') renderStats(); // 渲染統計
         }
 
         function addReservation() {
@@ -444,12 +464,13 @@
         function renderOrderView() {
             const foodSelect = document.getElementById('food-select');
             const drinkSelect = document.getElementById('drink-select');
+            const alcoholSelect = document.getElementById('alcohol-select'); // 💡 新增酒類
             
             foodSelect.innerHTML = '';
             drinkSelect.innerHTML = '';
+            alcoholSelect.innerHTML = '';
             
-            let hasFood = false;
-            let hasDrink = false;
+            let hasFood = false, hasDrink = false, hasAlcohol = false;
 
             menu.forEach(item => {
                 const optionHtml = `<option value="${item.id}">${item.name} ($${item.price})</option>`;
@@ -459,11 +480,15 @@
                 } else if (item.category === '飲品') {
                     drinkSelect.innerHTML += optionHtml;
                     hasDrink = true;
+                } else if (item.category === '酒') {
+                    alcoholSelect.innerHTML += optionHtml;
+                    hasAlcohol = true;
                 }
             });
 
             if (!hasFood) foodSelect.innerHTML = '<option value="">(目前無食物品項)</option>';
             if (!hasDrink) drinkSelect.innerHTML = '<option value="">(目前無飲品品項)</option>';
+            if (!hasAlcohol) alcoholSelect.innerHTML = '<option value="">(目前無酒類品項)</option>';
 
             loadTableData();
         }
@@ -505,7 +530,7 @@
             document.getElementById('pax-input').value = tables[currentTable].pax || '';
             document.getElementById('merge-note').value = tables[currentTable].mergeNote || ''; 
             document.getElementById('order-remark').value = '';
-            document.getElementById('checkout-discount').value = '0';
+            document.getElementById('checkout-discount').value = '0'; 
             renderCart();
         }
 
@@ -533,7 +558,6 @@
             if(existingUnsent) {
                 existingUnsent.qty++;
             } else {
-                // 💡 預設加入時為「不勾選」狀態 (checkoutSelected: false)
                 cart.push({ ...item, qty: 1, status: 'unsent', checkoutSelected: false });
             }
             
@@ -553,13 +577,12 @@
             renderCart();
         }
 
-        // 💡 新增：全選 / 全不選切換功能
         function toggleAllCheckout(selectAll) {
             const cart = tables[currentTable].cart;
             cart.forEach(item => {
                 item.checkoutSelected = selectAll;
             });
-            renderCart(); // 內部會觸發 updateCheckoutTotal
+            renderCart(); 
         }
 
         function updateCheckoutTotal() {
@@ -569,7 +592,6 @@
             
             checkboxes.forEach(cb => {
                 let idx = parseInt(cb.dataset.index);
-                // 記錄勾選狀態
                 cart[idx].checkoutSelected = cb.checked;
                 
                 if (cb.checked) {
@@ -610,14 +632,12 @@
                 if (item.qty > 1) {
                     qtySelectHtml = `<select id="checkout-qty-${index}" class="checkout-qty-select" onchange="updateCheckoutTotal()">`;
                     for(let i = 1; i <= item.qty; i++) {
-                        // 如果有上次記錄的結帳數量，維持它，否則預設選最大值
                         let isSelected = item.checkoutQty ? (i === item.checkoutQty) : (i === item.qty);
                         qtySelectHtml += `<option value="${i}" ${isSelected ? 'selected' : ''}>結 ${i}</option>`;
                     }
                     qtySelectHtml += `</select>`;
                 }
 
-                // 💡 讀取紀錄的勾選狀態 (若未定義則預設不勾選)
                 let checkedAttr = (item.checkoutSelected === true) ? 'checked' : '';
 
                 list.innerHTML += `
@@ -765,7 +785,6 @@
             if(document.getElementById('order-view').classList.contains('active')) renderCart();
         }
 
-
         function checkout(paymentMethod) {
             const cart = tables[currentTable].cart;
             if(cart.length === 0) return alert('這桌是空的，無須結帳！');
@@ -807,7 +826,6 @@
                 
                 item.qty -= checkoutQty;
                 item.servedQty = Math.max(0, (item.servedQty || 0) - checkoutQty);
-                // 重置該項目勾選狀態
                 item.checkoutSelected = false; 
                 
                 if (item.qty <= 0) {
@@ -880,7 +898,7 @@
             reversedHistory.forEach(record => {
                 totalRevenue += record.total;
                 if (record.method === '現金') cashTotal += record.total;
-                if (record.method === '轉帳') transferTotal += record.total; // 💡 修改為轉帳
+                if (record.method === '轉帳') transferTotal += record.total;
                 
                 let itemsHtml = '';
                 if(record.items && record.items.length > 0) {
@@ -934,63 +952,93 @@
 
             let netProfit = totalRevenue - totalExpense;
 
+            // 💡 統計仍在場客人尚未結帳的總金額
+            let unsettledTotal = 0;
+            for(let t in tables) {
+                if(tables[t].cart) {
+                    tables[t].cart.forEach(item => {
+                        unsettledTotal += item.price * item.qty;
+                    });
+                }
+            }
+
             document.getElementById('dash-revenue').innerText = `$${totalRevenue}`;
             document.getElementById('dash-expense').innerText = `$${totalExpense}`;
             document.getElementById('dash-cash').innerText = `$${cashTotal}`;
-            document.getElementById('dash-linepay').innerText = `$${transferTotal}`; // 💡 UI對應轉帳
+            document.getElementById('dash-transfer').innerText = `$${transferTotal}`;
+            document.getElementById('dash-unsettled').innerText = `$${unsettledTotal}`;
             document.getElementById('dash-profit').innerText = `$${netProfit}`;
         }
 
-        // 💡 新增：渲染銷售統計邏輯
+        // 💡 修改：歷史銷售統計獨立讀取與渲染
         function renderStats() {
-            let itemCounts = {};
-            let totalRevenue = 0;
+            const list = document.getElementById('stats-daily-list');
+            list.innerHTML = '';
             
-            // 1. 撈取歷史訂單計算銷售數量
-            history.forEach(record => {
-                totalRevenue += record.total;
-                if(record.items) {
-                    record.items.forEach(item => {
-                        if(!itemCounts[item.name]) {
-                            itemCounts[item.name] = { count: 0, category: item.category };
-                        }
-                        itemCounts[item.name].count += item.qty;
-                    });
-                }
-            });
-
-            // 2. 計算總支出
-            let totalExpense = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-
-            // 更新上方概覽數字
-            document.getElementById('stats-total-revenue').innerText = `$${totalRevenue}`;
-            document.getElementById('stats-total-expense').innerText = `$${totalExpense}`;
-
-            // 3. 排序 (數量由大到小)
-            let sortedItems = Object.keys(itemCounts)
-                                    .map(key => ({ name: key, ...itemCounts[key] }))
-                                    .sort((a, b) => b.count - a.count);
-
-            const list = document.getElementById('stats-item-list');
-            let html = '';
-            
-            if(sortedItems.length === 0) {
-                html = '<div style="text-align:center; color:#999; padding:20px;">尚無結帳與銷售紀錄</div>';
-            } else {
-                sortedItems.forEach(it => {
-                    html += `
-                        <div class="list-item" style="border-bottom: 1px dashed #ccc; padding: 10px 0;">
-                            <span>${it.name} <small style="color:#666; margin-left: 5px;">(${it.category})</small></span>
-                            <strong style="color: var(--primary); font-size: 18px;">${it.count} 份</strong>
-                        </div>
-                    `;
-                });
+            if(dailyStats.length === 0) {
+                list.innerHTML = '<div style="text-align:center; color:#999; padding:20px;">尚無歷史日結統計紀錄</div>';
+                return;
             }
+
+            let html = '';
+            // 反轉陣列，讓最新的日期排在最上方
+            [...dailyStats].reverse().forEach(stat => {
+                let itemsHtml = stat.items.map(it => `
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 8px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
+                        <span>${it.name} <small style="color:#666;">(${it.category})</small></span>
+                        <strong style="color: var(--primary);">${it.count} 份</strong>
+                    </div>
+                `).join('');
+
+                let netProfit = stat.revenue - stat.expense;
+
+                html += `
+                    <div class="card" style="border-top: 4px solid var(--primary);">
+                        <h3 style="margin-top: 0; color: var(--primary);">📅 ${stat.date}</h3>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px;">
+                            <span>營業額: $${stat.revenue}</span>
+                            <span>支出: $${stat.expense}</span>
+                            <span style="color: #FF9500; font-weight: bold;">淨利: $${netProfit}</span>
+                        </div>
+                        <h4 style="margin-bottom: 10px; color: #333;">📊 餐點銷售排行</h4>
+                        <div>${itemsHtml || '<span style="color:#999;">無銷售紀錄</span>'}</div>
+                    </div>
+                `;
+            });
             list.innerHTML = html;
         }
 
         function endOfDay() {
-            if(confirm('確定要執行日結嗎？這將會清空今日所有「帳單紀錄」、「支出明細」與「訂位資料」！')) {
+            if(confirm('確定要執行日結嗎？這將會結算今日銷售統計，並清空「帳單紀錄」、「支出明細」與「訂位資料」！')) {
+                
+                // 💡 執行日結前，封裝當日統計數據並存入歷史資料庫
+                let totalRev = 0;
+                let itemCounts = {};
+                history.forEach(record => {
+                    totalRev += record.total;
+                    if(record.items) {
+                        record.items.forEach(item => {
+                            if(!itemCounts[item.name]) itemCounts[item.name] = { count: 0, category: item.category };
+                            itemCounts[item.name].count += item.qty;
+                        });
+                    }
+                });
+                let totalExp = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+                let sortedItems = Object.keys(itemCounts)
+                                        .map(key => ({ name: key, ...itemCounts[key] }))
+                                        .sort((a, b) => b.count - a.count); // 依銷售數量大到小排序
+
+                let todayStr = new Date().toLocaleDateString('zh-TW') + " " + new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'});
+                
+                dailyStats.push({
+                    date: todayStr,
+                    revenue: totalRev,
+                    expense: totalExp,
+                    items: sortedItems
+                });
+
+                // 清空當日暫存
                 history = [];
                 kitchenQueue = []; 
                 expenses = []; 
@@ -1002,17 +1050,18 @@
                 renderSummary();
                 if(document.getElementById('reservation-view').classList.contains('active')) renderReservations();
                 if(document.getElementById('stats-view').classList.contains('active')) renderStats();
-                alert('日結完成，系統已歸零準備迎接明天！');
+                alert('日結完成，銷售數據已存入統計，系統已歸零準備迎接明天！');
             }
         }
 
         function saveData() {
-            localStorage.setItem('pos_menu_v5', JSON.stringify(menu));
+            localStorage.setItem('pos_menu_v6', JSON.stringify(menu)); // 金鑰已更新至 v6
             localStorage.setItem('pos_tables', JSON.stringify(tables));
             localStorage.setItem('pos_kitchen', JSON.stringify(kitchenQueue));
             localStorage.setItem('pos_history', JSON.stringify(history));
             localStorage.setItem('pos_expenses', JSON.stringify(expenses)); 
             localStorage.setItem('pos_reservations', JSON.stringify(reservations)); 
+            localStorage.setItem('pos_daily_stats', JSON.stringify(dailyStats)); // 💡 儲存歷史統計資料
         }
 
         renderOrderView();
