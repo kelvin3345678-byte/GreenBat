@@ -7,8 +7,9 @@
     <style>
         :root { --primary: #007AFF; --bg: #F2F2F7; --text: #1C1C1E; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg); color: var(--text); }
-        nav { display: flex; background: white; padding: 10px; border-bottom: 1px solid #ccc; position: sticky; top: 0; z-index: 100; overflow-x: auto; white-space: nowrap;}
-        nav button { flex: 1; padding: 10px; margin: 0 3px; border: none; border-radius: 8px; background: #e5e5ea; font-size: 15px; cursor: pointer; min-width: 80px;}
+        nav { display: flex; background: white; padding: 10px; border-bottom: 1px solid #ccc; position: sticky; top: 0; z-index: 100; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none;}
+        nav::-webkit-scrollbar { display: none; }
+        nav button { flex-shrink: 0; padding: 10px 15px; margin: 0 4px; border: none; border-radius: 8px; background: #e5e5ea; font-size: 15px; cursor: pointer;}
         nav button.active { background: var(--primary); color: white; }
         .container { padding: 15px; display: none; }
         .container.active { display: block; }
@@ -106,7 +107,6 @@
             <h3>目前桌邊餐點 (可勾選與選擇數量結帳)</h3>
             <div id="cart-list"></div>
             
-            <!-- 💡 新增：折扣與實收總計區域 -->
             <div style="border-top: 2px dashed #eee; margin-top: 15px; padding-top: 15px;">
                 <div style="font-size: 16px; color: #333; display: flex; justify-content: flex-end; align-items: center; margin-bottom: 5px;">
                     <span style="color:#FF9500; font-size: 14px;">(促銷/買送一)</span> 折扣/折讓：-$ 
@@ -249,7 +249,7 @@
             { id: 402, name: '豬五花丼飯', price: 220, category: '食物' },
             { id: 403, name: '香料火腿起司拼盤', price: 380, category: '食物' },
             { id: 404, name: '高麗菜豬肉水餃', price: 150, category: '食物' },
-            { id: 501, name: '生啤酒', price: 150, category: '飲品' } // 測試促銷用
+            { id: 501, name: '生啤酒', price: 150, category: '飲品' }
         ];
 
         let menu = JSON.parse(localStorage.getItem('pos_menu_v5')) || defaultMenu;
@@ -282,12 +282,13 @@
             if(tabName === 'summary') renderSummary();
         }
 
+        // 💡 修正：使用 Regex 同時支援中文與英文逗號切割
         function addReservation() {
             let inputStr = document.getElementById('res-input').value.trim();
             if(!inputStr) return;
             
-            inputStr = inputStr.replace(/，/g, ',');
-            let parts = inputStr.split(',');
+            // 透過正則表達式分割全形、半形逗號，並清理空白
+            let parts = inputStr.split(/,|，/).map(p => p.trim());
             
             if(parts.length < 3) {
                 alert('格式不正確！請確認包含名稱、時間、人數，並以逗號隔開。\n例如：程小姐,21:00,x2');
@@ -296,10 +297,11 @@
 
             reservations.push({
                 id: Date.now(),
-                name: parts[0].trim(),
-                time: parts[1].trim(),
-                pax: parts[2].trim(),
-                arrived: false
+                name: parts[0],
+                time: parts[1],
+                pax: parts[2],
+                arrived: false,
+                cancelled: false // 💡 新增：撤銷狀態標記
             });
 
             document.getElementById('res-input').value = '';
@@ -309,8 +311,19 @@
 
         function toggleReservation(id) {
             let target = reservations.find(r => r.id == id);
-            if(target) {
+            if(target && !target.cancelled) {
                 target.arrived = !target.arrived; 
+                saveData();
+                renderReservations();
+            }
+        }
+
+        // 💡 新增：撤銷訂位功能
+        function cancelReservation(id) {
+            if(!confirm('確定要撤銷此筆訂位嗎？（撤銷後仍會保留紀錄供查詢）')) return;
+            let target = reservations.find(r => r.id == id);
+            if(target) {
+                target.cancelled = true; 
                 saveData();
                 renderReservations();
             }
@@ -334,18 +347,35 @@
             reservations.forEach(res => {
                 let btnClass = res.arrived ? "btn-green" : "btn-orange";
                 let btnText = res.arrived ? "✅ 已入座" : "等候中"; 
-                let opacity = res.arrived ? "0.5" : "1"; 
-
-                list.innerHTML += `
-                    <div class="list-item" style="opacity: ${opacity};">
-                        <div>
-                            <span style="font-size: 20px; font-weight: bold; color: var(--primary);">${res.time}</span>
-                            <span style="margin-left: 15px; font-size: 18px; font-weight: bold;">${res.name}</span>
-                            <span style="margin-left: 10px; color: #666; font-size: 14px;">(${res.pax})</span>
+                
+                // 💡 撤銷狀態排版
+                if (res.cancelled) {
+                    list.innerHTML += `
+                        <div class="list-item" style="opacity: 0.4; background: #f9f9f9;">
+                            <div>
+                                <span style="font-size: 20px; font-weight: bold; color: #999; text-decoration: line-through;">${res.time}</span>
+                                <span style="margin-left: 15px; font-size: 18px; font-weight: bold; color: #999; text-decoration: line-through;">${res.name}</span>
+                                <span style="margin-left: 10px; color: #999; font-size: 14px;">(${res.pax})</span>
+                            </div>
+                            <span style="color: #FF3B30; font-weight: bold; font-size: 14px; padding: 10px;">已撤銷</span>
                         </div>
-                        <button onclick="toggleReservation('${res.id}')" class="btn ${btnClass}" style="width: auto; padding: 10px 15px; margin: 0; min-width: 80px;">${btnText}</button>
-                    </div>
-                `;
+                    `;
+                } else {
+                    let opacity = res.arrived ? "0.6" : "1"; 
+                    list.innerHTML += `
+                        <div class="list-item" style="opacity: ${opacity};">
+                            <div>
+                                <span style="font-size: 20px; font-weight: bold; color: var(--primary);">${res.time}</span>
+                                <span style="margin-left: 15px; font-size: 18px; font-weight: bold;">${res.name}</span>
+                                <span style="margin-left: 10px; color: #666; font-size: 14px;">(${res.pax})</span>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button onclick="toggleReservation('${res.id}')" class="btn ${btnClass}" style="width: auto; padding: 10px; margin: 0; min-width: 80px;">${btnText}</button>
+                                <button onclick="cancelReservation('${res.id}')" class="btn btn-red" style="width: auto; padding: 10px; margin: 0; font-size: 14px;">撤銷</button>
+                            </div>
+                        </div>
+                    `;
+                }
             });
         }
 
@@ -493,7 +523,6 @@
             renderCart();
         }
 
-        // 💡 新增：動態計算有被勾選且選擇數量的總金額與折扣
         function updateCheckoutTotal() {
             const cart = tables[currentTable].cart;
             const checkboxes = document.querySelectorAll('.item-checkout-cb');
@@ -508,7 +537,6 @@
                 }
             });
             
-            // 扣除手動輸入的折扣金額 (解決買三送一問題)
             let discount = parseInt(document.getElementById('checkout-discount').value) || 0;
             let finalTotal = Math.max(0, selectedTotal - discount);
             
@@ -528,14 +556,15 @@
                 if (item.status === 'unsent') {
                     actionBtn = `<button onclick="removeOneFromCart(${index})" style="background:#ccc; border:none; padding:5px 10px; border-radius:5px;">-1</button>`;
                 } else if (item.status === 'preparing') {
-                    statusBadge = '<span style="color:#FF9500; font-size:12px; margin-left:5px;">(製作中)</span>';
-                    actionBtn = '<span style="font-size:13px; color:#FF9500; font-weight:bold;">👨‍🍳 製作中</span>';
+                    // 💡 加入已出數量的文字提示
+                    let servedText = item.servedQty ? `(出${item.servedQty},剩${item.qty - item.servedQty})` : '(製作中)';
+                    statusBadge = `<span style="color:#FF9500; font-size:12px; margin-left:5px;">${servedText}</span>`;
+                    actionBtn = `<span style="font-size:13px; color:#FF9500; font-weight:bold;">👨‍🍳 製作中</span>`;
                 } else if (item.status === 'served') {
-                    statusBadge = '<span style="color:#34C759; font-size:12px; margin-left:5px;">(已出餐)</span>';
-                    actionBtn = '<span style="font-size:13px; color:#34C759; font-weight:bold;">✅ 已出餐</span>';
+                    statusBadge = `<span style="color:#34C759; font-size:12px; margin-left:5px;">(已出餐)</span>`;
+                    actionBtn = `<span style="font-size:13px; color:#34C759; font-weight:bold;">✅ 已出餐</span>`;
                 }
 
-                // 💡 新增：若數量大於 1，顯示數量下拉選單供部分結帳
                 let qtySelectHtml = '';
                 if (item.qty > 1) {
                     qtySelectHtml = `<select id="checkout-qty-${index}" class="checkout-qty-select" onchange="updateCheckoutTotal()">`;
@@ -574,6 +603,7 @@
 
             unsentItems.forEach(item => {
                 item.status = 'preparing';
+                item.servedQty = 0; // 💡 重置已出數量
                 item.taskId = Date.now() + Math.random().toString(36).substr(2, 5);
                 
                 kitchenQueue.push({
@@ -606,6 +636,16 @@
                 let remarkHtml = task.remark ? `<div style="color: #FF3B30; font-size: 14px; margin-top: 5px;">📝 備註: ${task.remark}</div>` : '';
                 let displayTable = ['1','2','3','4','5'].includes(task.table) ? `第 ${task.table} 桌` : task.table;
                 
+                // 💡 新增：廚房部分出餐數量選擇
+                let qtySelectHtml = '';
+                if (task.qty > 1) {
+                    qtySelectHtml = `<select id="serve-qty-${task.taskId}" style="padding: 5px; margin-right: 10px; border-radius: 5px; font-size: 14px;">`;
+                    for(let i = 1; i <= task.qty; i++) {
+                        qtySelectHtml += `<option value="${i}" ${i === task.qty ? 'selected' : ''}>出 ${i} 份</option>`;
+                    }
+                    qtySelectHtml += `</select>`;
+                }
+
                 list.innerHTML += `
                     <div class="card kitchen-task">
                         <div>
@@ -616,23 +656,73 @@
                             </div>
                             ${remarkHtml}
                         </div>
-                        <button class="btn btn-green" style="width: auto; padding: 15px 20px; margin: 0;" onclick="markAsServed('${task.taskId}', '${task.table}')">✅ 出餐</button>
+                        <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                            <div style="display: flex; align-items: center;">
+                                ${qtySelectHtml}
+                                <button class="btn btn-green" style="width: auto; padding: 10px 15px; margin: 0;" onclick="markAsServed('${task.taskId}', '${task.table}')">✅ 出餐</button>
+                            </div>
+                            <button class="btn" style="width: auto; padding: 5px 10px; margin: 0; font-size: 14px; background: transparent; color: #FF3B30; border: 1px solid #FF3B30;" onclick="cancelKitchenTask('${task.taskId}', '${task.table}')">❌ 撤單</button>
+                        </div>
                     </div>
                 `;
             });
         }
 
+        // 💡 修改：支援部分出餐
         function markAsServed(taskId, tableNum) {
-            kitchenQueue = kitchenQueue.filter(task => task.taskId !== taskId);
-            if(tables[tableNum]) {
-                const cartItem = tables[tableNum].cart.find(c => c.taskId === taskId);
-                if(cartItem) cartItem.status = 'served';
+            let taskIndex = kitchenQueue.findIndex(t => t.taskId === taskId);
+            if(taskIndex === -1) return;
+            let task = kitchenQueue[taskIndex];
+
+            let serveQty = task.qty;
+            let qtySelect = document.getElementById('serve-qty-' + taskId);
+            if(qtySelect) serveQty = parseInt(qtySelect.value);
+
+            let cartItem = tables[tableNum]?.cart.find(c => c.taskId === taskId);
+            if(cartItem) {
+                cartItem.servedQty = (cartItem.servedQty || 0) + serveQty;
             }
+
+            task.qty -= serveQty;
+            if(task.qty <= 0) {
+                kitchenQueue.splice(taskIndex, 1);
+                if(cartItem && cartItem.servedQty >= cartItem.qty) {
+                    cartItem.status = 'served';
+                }
+            }
+
             saveData();
             renderKitchenView();
+            if(document.getElementById('order-view').classList.contains('active')) renderCart();
         }
 
-        // 💡 修正 3：部分結帳與數量扣除邏輯
+        // 💡 新增：撤單功能
+        function cancelKitchenTask(taskId, tableNum) {
+            if(!confirm('確定要撤銷此餐點嗎？\n(這將從該桌的未結帳清單中扣除相對應的數量)')) return;
+
+            let taskIndex = kitchenQueue.findIndex(t => t.taskId === taskId);
+            if(taskIndex === -1) return;
+            let task = kitchenQueue[taskIndex];
+
+            if(tables[tableNum]) {
+                let cartItem = tables[tableNum].cart.find(c => c.taskId === taskId);
+                if(cartItem) {
+                    cartItem.qty -= task.qty; // 扣除沒做完的數量
+                    if(cartItem.qty <= 0) {
+                        tables[tableNum].cart = tables[tableNum].cart.filter(c => c.taskId !== taskId);
+                    } else if ((cartItem.servedQty || 0) >= cartItem.qty) {
+                        cartItem.status = 'served';
+                    }
+                }
+            }
+
+            kitchenQueue.splice(taskIndex, 1);
+            saveData();
+            renderKitchenView();
+            if(document.getElementById('order-view').classList.contains('active')) renderCart();
+        }
+
+
         function checkout(paymentMethod) {
             const cart = tables[currentTable].cart;
             if(cart.length === 0) return alert('這桌是空的，無須結帳！');
@@ -645,7 +735,6 @@
 
             if (checkedIndices.length === 0) return alert('請先勾選要結帳的品項！');
 
-            // 由大到小排序，避免陣列 splice 時索引亂掉
             checkedIndices.sort((a, b) => b - a);
 
             let subTotal = 0;
@@ -669,16 +758,14 @@
                 
                 subTotal += item.price * checkoutQty;
                 
-                // 記錄至帳單明細
                 let recordItem = JSON.parse(JSON.stringify(item));
                 recordItem.qty = checkoutQty;
                 checkoutItems.push(recordItem);
                 
-                // 扣除購物車數量
                 item.qty -= checkoutQty;
+                item.servedQty = Math.max(0, (item.servedQty || 0) - checkoutQty);
                 
                 if (item.qty <= 0) {
-                    kitchenQueue = kitchenQueue.filter(task => task.taskId !== item.taskId);
                     cart.splice(idx, 1);
                 }
             });
@@ -692,7 +779,7 @@
                 table: currentTable,
                 pax: tables[currentTable].pax,
                 total: finalTotal,
-                discount: discount, // 記錄折扣
+                discount: discount, 
                 method: paymentMethod,
                 time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
                 items: checkoutItems 
@@ -702,6 +789,7 @@
 
             if (cart.length === 0) {
                 tables[currentTable] = { pax: 0, cart: [], mergeNote: "" };
+                kitchenQueue = kitchenQueue.filter(task => task.table !== currentTable); // 桌子結清，清除孤兒任務
                 document.getElementById('merge-note').value = '';
                 document.getElementById('pax-input').value = '0';
                 document.getElementById('checkout-discount').value = '0';
@@ -759,8 +847,6 @@
                 }
                 
                 let displayTable = ['1','2','3','4','5'].includes(record.table) ? `第 ${record.table} 桌` : record.table;
-                
-                // 若有折扣，則顯示於明細
                 let discountHtml = record.discount ? `<small style="color:#FF9500; font-weight:normal;">(含折扣 -$${record.discount})</small> ` : '';
 
                 list.innerHTML += `
