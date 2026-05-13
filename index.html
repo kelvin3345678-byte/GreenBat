@@ -62,6 +62,7 @@
         <button id="tab-kitchen" onclick="switchTab('kitchen')">👨‍🍳 廚房出餐</button>
         <button id="tab-menu" onclick="switchTab('menu')">📂 菜單管理</button>
         <button id="tab-summary" onclick="switchTab('summary')">📊 今日帳務</button>
+        <button id="tab-stats" onclick="switchTab('stats')">📈 銷售統計</button>
     </nav>
 
     <div id="order-view" class="container active">
@@ -104,7 +105,13 @@
         </div>
 
         <div class="card">
-            <h3>目前桌邊餐點 (可勾選與選擇數量結帳)</h3>
+            <h3>目前桌邊餐點</h3>
+            <!-- 💡 新增：全選與全不選按鈕 -->
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button class="btn btn-blue" style="padding: 8px; margin: 0; flex: 1;" onclick="toggleAllCheckout(true)">☑️ 全選</button>
+                <button class="btn" style="background: #e5e5ea; color: #333; padding: 8px; margin: 0; flex: 1;" onclick="toggleAllCheckout(false)">☐ 全不選</button>
+            </div>
+            
             <div id="cart-list"></div>
             
             <div style="border-top: 2px dashed #eee; margin-top: 15px; padding-top: 15px;">
@@ -112,7 +119,7 @@
                     <span style="color:#FF9500; font-size: 14px;">(促銷/買送一)</span> 折扣/折讓：-$ 
                     <input type="number" id="checkout-discount" value="0" style="width: 80px; padding: 5px; margin-left: 10px; margin-bottom: 0; text-align: right;" onchange="updateCheckoutTotal()" onkeyup="updateCheckoutTotal()">
                 </div>
-                <div class="total-price" style="margin-top: 5px;">實收總計: $<span id="cart-total">0</span></div>
+                <div class="total-price" style="margin-top: 5px;">選取實收總計: $<span id="cart-total">0</span></div>
             </div>
             
             <label>本次點餐備註：</label>
@@ -123,7 +130,8 @@
             <div style="margin-top: 25px; border-top: 2px dashed #ccc; padding-top: 15px;">
                 <h4 style="margin-top: 0; color: #666;">👇 勾選品項結帳區</h4>
                 <button class="btn btn-blue" onclick="checkout('現金')">💵 現金結帳</button>
-                <button class="btn btn-green" onclick="checkout('LINE Pay')">📱 LINE Pay 結帳</button>
+                <!-- 💡 修正：更名為轉帳 -->
+                <button class="btn btn-green" onclick="checkout('轉帳')">📱 轉帳結帳</button>
             </div>
         </div>
     </div>
@@ -185,9 +193,10 @@
                     <span class="dash-title">💵 現金收入</span>
                     <span class="dash-value" style="color: #34C759;" id="dash-cash">$0</span>
                 </div>
+                <!-- 💡 修正：更名為轉帳 -->
                 <div class="dash-box" style="background: #e3f2fd;">
-                    <span class="dash-title">📱 LINE Pay</span>
-                    <span class="dash-value" style="color: #007AFF;" id="dash-linepay">$0</span>
+                    <span class="dash-title">📱 轉帳收入</span>
+                    <span class="dash-value" style="color: #007AFF;" id="dash-transfer">$0</span>
                 </div>
             </div>
 
@@ -210,6 +219,28 @@
             <div id="history-list"></div>
             <br>
             <button class="btn btn-red" onclick="endOfDay()">執行日結 (清空今日所有紀錄)</button>
+        </div>
+    </div>
+
+    <!-- 💡 新增：銷售統計分頁 -->
+    <div id="stats-view" class="container">
+        <div class="card">
+            <h3>整體營收概覽</h3>
+            <div class="dashboard-grid">
+                <div class="dash-box" style="background: #e5e5ea;">
+                    <span class="dash-title">💰 總營業額</span>
+                    <span class="dash-value" id="stats-total-revenue">$0</span>
+                </div>
+                <div class="dash-box" style="background: #ffebee;">
+                    <span class="dash-title">💸 總支出</span>
+                    <span class="dash-value" style="color: #FF3B30;" id="stats-total-expense">$0</span>
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">📊 餐點銷售排行 (備料參考)</h3>
+            <div id="stats-item-list">
+                <!-- 統計資料渲染於此 -->
+            </div>
         </div>
     </div>
 
@@ -280,14 +311,14 @@
             if(tabName === 'kitchen') renderKitchenView();
             if(tabName === 'menu') renderMenuAdmin();
             if(tabName === 'summary') renderSummary();
+            if(tabName === 'stats') renderStats(); // 💡 觸發統計渲染
         }
 
-        // 💡 修正：使用 Regex 同時支援中文與英文逗號切割
         function addReservation() {
             let inputStr = document.getElementById('res-input').value.trim();
             if(!inputStr) return;
             
-            // 透過正則表達式分割全形、半形逗號，並清理空白
+            inputStr = inputStr.replace(/，/g, ',');
             let parts = inputStr.split(/,|，/).map(p => p.trim());
             
             if(parts.length < 3) {
@@ -301,7 +332,7 @@
                 time: parts[1],
                 pax: parts[2],
                 arrived: false,
-                cancelled: false // 💡 新增：撤銷狀態標記
+                cancelled: false
             });
 
             document.getElementById('res-input').value = '';
@@ -318,7 +349,6 @@
             }
         }
 
-        // 💡 新增：撤銷訂位功能
         function cancelReservation(id) {
             if(!confirm('確定要撤銷此筆訂位嗎？（撤銷後仍會保留紀錄供查詢）')) return;
             let target = reservations.find(r => r.id == id);
@@ -348,7 +378,6 @@
                 let btnClass = res.arrived ? "btn-green" : "btn-orange";
                 let btnText = res.arrived ? "✅ 已入座" : "等候中"; 
                 
-                // 💡 撤銷狀態排版
                 if (res.cancelled) {
                     list.innerHTML += `
                         <div class="list-item" style="opacity: 0.4; background: #f9f9f9;">
@@ -476,7 +505,7 @@
             document.getElementById('pax-input').value = tables[currentTable].pax || '';
             document.getElementById('merge-note').value = tables[currentTable].mergeNote || ''; 
             document.getElementById('order-remark').value = '';
-            document.getElementById('checkout-discount').value = '0'; // 切換桌號時重置折扣
+            document.getElementById('checkout-discount').value = '0';
             renderCart();
         }
 
@@ -504,7 +533,8 @@
             if(existingUnsent) {
                 existingUnsent.qty++;
             } else {
-                cart.push({ ...item, qty: 1, status: 'unsent' });
+                // 💡 預設加入時為「不勾選」狀態 (checkoutSelected: false)
+                cart.push({ ...item, qty: 1, status: 'unsent', checkoutSelected: false });
             }
             
             if(tables[currentTable].pax == 0) {
@@ -523,14 +553,26 @@
             renderCart();
         }
 
+        // 💡 新增：全選 / 全不選切換功能
+        function toggleAllCheckout(selectAll) {
+            const cart = tables[currentTable].cart;
+            cart.forEach(item => {
+                item.checkoutSelected = selectAll;
+            });
+            renderCart(); // 內部會觸發 updateCheckoutTotal
+        }
+
         function updateCheckoutTotal() {
             const cart = tables[currentTable].cart;
             const checkboxes = document.querySelectorAll('.item-checkout-cb');
             let selectedTotal = 0;
             
             checkboxes.forEach(cb => {
+                let idx = parseInt(cb.dataset.index);
+                // 記錄勾選狀態
+                cart[idx].checkoutSelected = cb.checked;
+                
                 if (cb.checked) {
-                    let idx = parseInt(cb.dataset.index);
                     let qtySelect = document.getElementById('checkout-qty-' + idx);
                     let checkoutQty = qtySelect ? parseInt(qtySelect.value) : cart[idx].qty;
                     selectedTotal += cart[idx].price * checkoutQty;
@@ -556,7 +598,6 @@
                 if (item.status === 'unsent') {
                     actionBtn = `<button onclick="removeOneFromCart(${index})" style="background:#ccc; border:none; padding:5px 10px; border-radius:5px;">-1</button>`;
                 } else if (item.status === 'preparing') {
-                    // 💡 加入已出數量的文字提示
                     let servedText = item.servedQty ? `(出${item.servedQty},剩${item.qty - item.servedQty})` : '(製作中)';
                     statusBadge = `<span style="color:#FF9500; font-size:12px; margin-left:5px;">${servedText}</span>`;
                     actionBtn = `<span style="font-size:13px; color:#FF9500; font-weight:bold;">👨‍🍳 製作中</span>`;
@@ -569,15 +610,20 @@
                 if (item.qty > 1) {
                     qtySelectHtml = `<select id="checkout-qty-${index}" class="checkout-qty-select" onchange="updateCheckoutTotal()">`;
                     for(let i = 1; i <= item.qty; i++) {
-                        qtySelectHtml += `<option value="${i}" ${i === item.qty ? 'selected' : ''}>結 ${i}</option>`;
+                        // 如果有上次記錄的結帳數量，維持它，否則預設選最大值
+                        let isSelected = item.checkoutQty ? (i === item.checkoutQty) : (i === item.qty);
+                        qtySelectHtml += `<option value="${i}" ${isSelected ? 'selected' : ''}>結 ${i}</option>`;
                     }
                     qtySelectHtml += `</select>`;
                 }
 
+                // 💡 讀取紀錄的勾選狀態 (若未定義則預設不勾選)
+                let checkedAttr = (item.checkoutSelected === true) ? 'checked' : '';
+
                 list.innerHTML += `
                     <div class="list-item">
                         <div style="display: flex; align-items: center;">
-                            <input type="checkbox" class="item-checkout-cb" data-index="${index}" onchange="updateCheckoutTotal()" checked>
+                            <input type="checkbox" class="item-checkout-cb" data-index="${index}" onchange="updateCheckoutTotal()" ${checkedAttr}>
                             <span>${item.name} x ${item.qty} ${statusBadge}<br><small style="color:#666;">單價 $${item.price}</small></span>
                         </div>
                         <div style="display: flex; align-items: center;">
@@ -603,7 +649,7 @@
 
             unsentItems.forEach(item => {
                 item.status = 'preparing';
-                item.servedQty = 0; // 💡 重置已出數量
+                item.servedQty = 0; 
                 item.taskId = Date.now() + Math.random().toString(36).substr(2, 5);
                 
                 kitchenQueue.push({
@@ -636,7 +682,6 @@
                 let remarkHtml = task.remark ? `<div style="color: #FF3B30; font-size: 14px; margin-top: 5px;">📝 備註: ${task.remark}</div>` : '';
                 let displayTable = ['1','2','3','4','5'].includes(task.table) ? `第 ${task.table} 桌` : task.table;
                 
-                // 💡 新增：廚房部分出餐數量選擇
                 let qtySelectHtml = '';
                 if (task.qty > 1) {
                     qtySelectHtml = `<select id="serve-qty-${task.taskId}" style="padding: 5px; margin-right: 10px; border-radius: 5px; font-size: 14px;">`;
@@ -668,7 +713,6 @@
             });
         }
 
-        // 💡 修改：支援部分出餐
         function markAsServed(taskId, tableNum) {
             let taskIndex = kitchenQueue.findIndex(t => t.taskId === taskId);
             if(taskIndex === -1) return;
@@ -696,7 +740,6 @@
             if(document.getElementById('order-view').classList.contains('active')) renderCart();
         }
 
-        // 💡 新增：撤單功能
         function cancelKitchenTask(taskId, tableNum) {
             if(!confirm('確定要撤銷此餐點嗎？\n(這將從該桌的未結帳清單中扣除相對應的數量)')) return;
 
@@ -707,7 +750,7 @@
             if(tables[tableNum]) {
                 let cartItem = tables[tableNum].cart.find(c => c.taskId === taskId);
                 if(cartItem) {
-                    cartItem.qty -= task.qty; // 扣除沒做完的數量
+                    cartItem.qty -= task.qty; 
                     if(cartItem.qty <= 0) {
                         tables[tableNum].cart = tables[tableNum].cart.filter(c => c.taskId !== taskId);
                     } else if ((cartItem.servedQty || 0) >= cartItem.qty) {
@@ -764,6 +807,8 @@
                 
                 item.qty -= checkoutQty;
                 item.servedQty = Math.max(0, (item.servedQty || 0) - checkoutQty);
+                // 重置該項目勾選狀態
+                item.checkoutSelected = false; 
                 
                 if (item.qty <= 0) {
                     cart.splice(idx, 1);
@@ -789,7 +834,7 @@
 
             if (cart.length === 0) {
                 tables[currentTable] = { pax: 0, cart: [], mergeNote: "" };
-                kitchenQueue = kitchenQueue.filter(task => task.table !== currentTable); // 桌子結清，清除孤兒任務
+                kitchenQueue = kitchenQueue.filter(task => task.table !== currentTable); 
                 document.getElementById('merge-note').value = '';
                 document.getElementById('pax-input').value = '0';
                 document.getElementById('checkout-discount').value = '0';
@@ -826,7 +871,7 @@
         function renderSummary() {
             let totalRevenue = 0;
             let cashTotal = 0;
-            let linepayTotal = 0;
+            let transferTotal = 0;
 
             const list = document.getElementById('history-list');
             list.innerHTML = '';
@@ -835,7 +880,7 @@
             reversedHistory.forEach(record => {
                 totalRevenue += record.total;
                 if (record.method === '現金') cashTotal += record.total;
-                if (record.method === 'LINE Pay') linepayTotal += record.total;
+                if (record.method === '轉帳') transferTotal += record.total; // 💡 修改為轉帳
                 
                 let itemsHtml = '';
                 if(record.items && record.items.length > 0) {
@@ -892,8 +937,56 @@
             document.getElementById('dash-revenue').innerText = `$${totalRevenue}`;
             document.getElementById('dash-expense').innerText = `$${totalExpense}`;
             document.getElementById('dash-cash').innerText = `$${cashTotal}`;
-            document.getElementById('dash-linepay').innerText = `$${linepayTotal}`;
+            document.getElementById('dash-linepay').innerText = `$${transferTotal}`; // 💡 UI對應轉帳
             document.getElementById('dash-profit').innerText = `$${netProfit}`;
+        }
+
+        // 💡 新增：渲染銷售統計邏輯
+        function renderStats() {
+            let itemCounts = {};
+            let totalRevenue = 0;
+            
+            // 1. 撈取歷史訂單計算銷售數量
+            history.forEach(record => {
+                totalRevenue += record.total;
+                if(record.items) {
+                    record.items.forEach(item => {
+                        if(!itemCounts[item.name]) {
+                            itemCounts[item.name] = { count: 0, category: item.category };
+                        }
+                        itemCounts[item.name].count += item.qty;
+                    });
+                }
+            });
+
+            // 2. 計算總支出
+            let totalExpense = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+            // 更新上方概覽數字
+            document.getElementById('stats-total-revenue').innerText = `$${totalRevenue}`;
+            document.getElementById('stats-total-expense').innerText = `$${totalExpense}`;
+
+            // 3. 排序 (數量由大到小)
+            let sortedItems = Object.keys(itemCounts)
+                                    .map(key => ({ name: key, ...itemCounts[key] }))
+                                    .sort((a, b) => b.count - a.count);
+
+            const list = document.getElementById('stats-item-list');
+            let html = '';
+            
+            if(sortedItems.length === 0) {
+                html = '<div style="text-align:center; color:#999; padding:20px;">尚無結帳與銷售紀錄</div>';
+            } else {
+                sortedItems.forEach(it => {
+                    html += `
+                        <div class="list-item" style="border-bottom: 1px dashed #ccc; padding: 10px 0;">
+                            <span>${it.name} <small style="color:#666; margin-left: 5px;">(${it.category})</small></span>
+                            <strong style="color: var(--primary); font-size: 18px;">${it.count} 份</strong>
+                        </div>
+                    `;
+                });
+            }
+            list.innerHTML = html;
         }
 
         function endOfDay() {
@@ -908,6 +1001,7 @@
                 saveData();
                 renderSummary();
                 if(document.getElementById('reservation-view').classList.contains('active')) renderReservations();
+                if(document.getElementById('stats-view').classList.contains('active')) renderStats();
                 alert('日結完成，系統已歸零準備迎接明天！');
             }
         }
