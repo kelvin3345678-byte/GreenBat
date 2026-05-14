@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GreenBat點餐與出餐系統</title>
+    <!-- 💡 引入 Chart.js 圖表套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #007AFF; --bg: #F2F2F7; --text: #1C1C1E; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg); color: var(--text); }
@@ -47,6 +49,10 @@
 
         .item-checkout-cb { width: 22px; height: 22px; margin-right: 12px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
         .checkout-qty-select { padding: 4px; margin: 0 10px 0 0; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; background: white;}
+        
+        /* 圖表篩選按鈕樣式 */
+        .filter-pill { display: flex; align-items: center; gap: 5px; font-size: 14px; background: #f0f0f0; padding: 8px 12px; border-radius: 20px; cursor: pointer; border: 1px solid #ddd; white-space: nowrap;}
+        .filter-pill input { margin: 0; width: 16px; height: 16px; accent-color: var(--primary);}
     </style>
 </head>
 <body>
@@ -229,11 +235,39 @@
         <h2 style="margin-top: 0; color: var(--primary);">📈 歷史銷售統計</h2>
         <p style="font-size: 14px; color: #666; margin-top: -10px; margin-bottom: 20px;">資料於每次執行「日結」後自動產生並永久保留。</p>
         
+        <!-- 💡 區間統計圖表區塊 -->
+        <div class="card" style="border: 2px solid var(--primary);">
+            <h3 style="margin-top: 0; color: var(--primary);">📊 自訂區間銷售圖表 (備料參考)</h3>
+            <label style="font-size: 14px; color: #666;">選擇統計區間：</label>
+            <div class="select-row" style="margin-bottom: 10px;">
+                <input type="date" id="chart-start-date" onchange="updateChart()">
+                <span style="margin: 0 5px; color: #666;">至</span>
+                <input type="date" id="chart-end-date" onchange="updateChart()">
+            </div>
+            
+            <div class="select-row" style="margin-bottom: 10px;">
+                <select id="chart-category-filter" style="flex: 1;" onchange="renderChartItemFilters()">
+                    <option value="all">所有類別</option>
+                    <option value="食物">食物</option>
+                    <option value="飲品">飲品</option>
+                    <option value="酒">酒</option>
+                </select>
+                <button class="btn btn-blue" style="padding: 10px;" onclick="selectAllChartItems(true)">全選</button>
+                <button class="btn" style="background: #e5e5ea; color: #333; padding: 10px;" onclick="selectAllChartItems(false)">清空</button>
+            </div>
+
+            <div id="chart-item-filters" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; max-height: 180px; overflow-y: auto; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px;">
+                <!-- 動態產生品項勾選框 -->
+            </div>
+
+            <!-- 圖表畫布 -->
+            <canvas id="salesChart" width="400" height="250"></canvas>
+        </div>
+
         <div id="stats-daily-list">
             <!-- 歷史日結統計卡片渲染於此 -->
         </div>
         
-        <!-- 💡 新增：清空所有紀錄按鈕 -->
         <br>
         <button class="btn btn-red" onclick="clearAllStats()" style="margin-top: 10px;">🗑️ 清空所有歷史紀錄</button>
     </div>
@@ -318,6 +352,7 @@
         let dailyStats = JSON.parse(localStorage.getItem('pos_daily_stats')) || []; 
         
         let currentTable = "1";
+        let salesChartInstance = null; // 圖表實例
 
         function switchTab(tabName) {
             document.querySelectorAll('.container').forEach(el => el.classList.remove('active'));
@@ -333,7 +368,14 @@
             if(tabName === 'kitchen') renderKitchenView();
             if(tabName === 'menu') renderMenuAdmin();
             if(tabName === 'summary') renderSummary();
-            if(tabName === 'stats') renderStats(); 
+            if(tabName === 'stats') {
+                renderStats(); 
+                if(!document.getElementById('chart-start-date').value) {
+                    initChartUI(); // 若無日期則初始化圖表
+                } else {
+                    updateChart(); // 若已有日期則直接更新圖表
+                }
+            }
         }
 
         function addReservation() {
@@ -532,7 +574,7 @@
             document.getElementById('pax-input').value = tables[currentTable].pax || '';
             document.getElementById('merge-note').value = tables[currentTable].mergeNote || ''; 
             document.getElementById('order-remark').value = '';
-            document.getElementById('checkout-discount').value = '0';
+            document.getElementById('checkout-discount').value = '0'; 
             renderCart();
         }
 
@@ -993,12 +1035,138 @@
             document.getElementById('dash-profit').innerText = `$${netProfit}`;
         }
 
-        // 💡 歷史紀錄刪除功能
+        // 💡 圖表功能相關 
+        function initChartUI() {
+            let today = new Date();
+            let lastWeek = new Date();
+            lastWeek.setDate(today.getDate() - 7);
+
+            const formatDate = (date) => {
+                let d = new Date(date), month = '' + (d.getMonth() + 1), day = '' + d.getDate(), year = d.getFullYear();
+                if (month.length < 2) month = '0' + month;
+                if (day.length < 2) day = '0' + day;
+                return [year, month, day].join('-');
+            }
+
+            document.getElementById('chart-start-date').value = formatDate(lastWeek);
+            document.getElementById('chart-end-date').value = formatDate(today);
+            renderChartItemFilters(); 
+        }
+
+        function renderChartItemFilters() {
+            const catFilter = document.getElementById('chart-category-filter').value;
+            const container = document.getElementById('chart-item-filters');
+            container.innerHTML = '';
+
+            let itemsToRender = menu;
+            if (catFilter !== 'all') {
+                itemsToRender = menu.filter(m => m.category === catFilter);
+            }
+
+            itemsToRender.forEach(item => {
+                container.innerHTML += `
+                    <label class="filter-pill">
+                        <input type="checkbox" class="chart-item-cb" value="${item.name}" checked onchange="updateChart()">
+                        ${item.name}
+                    </label>
+                `;
+            });
+            updateChart();
+        }
+
+        function selectAllChartItems(selectAll) {
+            document.querySelectorAll('.chart-item-cb').forEach(cb => cb.checked = selectAll);
+            updateChart();
+        }
+
+        function updateChart() {
+            let startDateStr = document.getElementById('chart-start-date').value;
+            let endDateStr = document.getElementById('chart-end-date').value;
+
+            if(!startDateStr || !endDateStr) return;
+
+            let startDate = new Date(startDateStr);
+            startDate.setHours(0,0,0,0);
+            let endDate = new Date(endDateStr);
+            endDate.setHours(23,59,59,999);
+
+            let checkedItems = Array.from(document.querySelectorAll('.chart-item-cb:checked')).map(cb => cb.value);
+
+            let aggregatedData = {};
+            checkedItems.forEach(item => aggregatedData[item] = 0);
+
+            // 統計範圍內的歷史數據
+            dailyStats.forEach(stat => {
+                let parts = stat.date.split(' ')[0].split('/'); // 處理格式 YYYY/MM/DD
+                if(parts.length === 3) {
+                    let statDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                    if (statDate >= startDate && statDate <= endDate) {
+                        if (stat.items) {
+                            stat.items.forEach(item => {
+                                if (aggregatedData[item.name] !== undefined) {
+                                    aggregatedData[item.name] += item.count;
+                                }
+                            });
+                        }
+                    }
+                }
+            });
+
+            // 準備給 Chart.js 的資料
+            let labels = [];
+            let data = [];
+
+            let sortedAggregated = Object.keys(aggregatedData)
+                .map(key => ({ name: key, count: aggregatedData[key] }))
+                .sort((a, b) => b.count - a.count);
+
+            sortedAggregated.forEach(item => {
+                if (item.count > 0) { 
+                    labels.push(item.name);
+                    data.push(item.count);
+                }
+            });
+
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            
+            if (salesChartInstance) {
+                salesChartInstance.destroy(); // 銷毀舊圖表以重繪
+            }
+
+            salesChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '總銷售數量',
+                        data: data,
+                        backgroundColor: 'rgba(0, 122, 255, 0.7)',
+                        borderColor: '#007AFF',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false } // 隱藏圖例讓畫面更乾淨
+                    }
+                }
+            });
+        }
+
         function deleteStat(index) {
             if(confirm(`確定要刪除 ${dailyStats[index].date} 的統計資料嗎？\n(⚠️ 注意：此動作無法復原！)`)) {
                 dailyStats.splice(index, 1);
                 saveData();
                 renderStats();
+                updateChart(); // 同步更新圖表
             }
         }
 
@@ -1008,6 +1176,7 @@
                 dailyStats = [];
                 saveData();
                 renderStats();
+                updateChart(); // 同步更新圖表
                 alert('歷史銷售統計已全部清空！');
             }
         }
@@ -1107,7 +1276,10 @@
                 saveData();
                 renderSummary();
                 if(document.getElementById('reservation-view').classList.contains('active')) renderReservations();
-                if(document.getElementById('stats-view').classList.contains('active')) renderStats();
+                if(document.getElementById('stats-view').classList.contains('active')) {
+                    renderStats();
+                    updateChart(); // 日結後重整圖表
+                }
                 alert('日結完成，銷售數據已存入統計，系統已歸零準備迎接明天！');
             }
         }
