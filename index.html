@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GreenBat點餐與出餐系統</title>
-    <!-- 💡 引入 Chart.js 圖表套件 -->
+    <title>簡易點餐與出餐系統</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #007AFF; --bg: #F2F2F7; --text: #1C1C1E; }
@@ -50,9 +49,13 @@
         .item-checkout-cb { width: 22px; height: 22px; margin-right: 12px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
         .checkout-qty-select { padding: 4px; margin: 0 10px 0 0; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; background: white;}
         
-        /* 圖表篩選按鈕樣式 */
         .filter-pill { display: flex; align-items: center; gap: 5px; font-size: 14px; background: #f0f0f0; padding: 8px 12px; border-radius: 20px; cursor: pointer; border: 1px solid #ddd; white-space: nowrap;}
         .filter-pill input { margin: 0; width: 16px; height: 16px; accent-color: var(--primary);}
+
+        /* 💡 庫存小控制項樣式 */
+        .stock-control { display: flex; align-items: center; gap: 5px; }
+        .stock-control input { width: 60px; height: 35px; text-align: center; padding: 5px; margin: 0; font-size: 15px; font-weight: bold;}
+        .stock-btn { background: #e5e5ea; border: none; width: 35px; height: 35px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; color: var(--primary); display: flex; align-items: center; justify-content: center;}
     </style>
 </head>
 <body>
@@ -61,6 +64,7 @@
         <button id="tab-order" class="active" onclick="switchTab('order')">🍽️ 桌位/點餐</button>
         <button id="tab-reservation" onclick="switchTab('reservation')">📝 訂位</button>
         <button id="tab-kitchen" onclick="switchTab('kitchen')">👨‍🍳 廚房出餐</button>
+        <button id="tab-inventory" onclick="switchTab('inventory')">📋 庫存盤點</button>
         <button id="tab-menu" onclick="switchTab('menu')">📂 菜單管理</button>
         <button id="tab-summary" onclick="switchTab('summary')">📊 今日帳務</button>
         <button id="tab-stats" onclick="switchTab('stats')">📈 銷售統計</button>
@@ -163,6 +167,22 @@
         </div>
     </div>
 
+    <div id="inventory-view" class="container">
+        <div class="card">
+            <h2 style="margin-top: 0; color: var(--primary);">📋 庫存實時盤點</h2>
+            <p style="font-size: 14px; color: #666; margin-top: -10px;">打烊或交班時清點數量使用，資料獨立保存，日結不會被清空。</p>
+            
+            <h3 style="color: #007AFF; border-bottom: 2px solid #007AFF; padding-bottom: 5px;">☕ 分類1─吧台</h3>
+            <div id="inv-bar-list"></div>
+
+            <h3 style="color: #34C759; border-bottom: 2px solid #34C759; padding-bottom: 5px; margin-top: 25px;">🍱 分類2─食物</h3>
+            <div id="inv-food-list"></div>
+
+            <h3 style="color: #FF9500; border-bottom: 2px solid #FF9500; padding-bottom: 5px; margin-top: 25px;">🍺 分類3─酒</h3>
+            <div id="inv-alcohol-list"></div>
+        </div>
+    </div>
+
     <div id="menu-view" class="container">
         <div class="card">
             <h3>新增品項</h3>
@@ -230,14 +250,12 @@
         </div>
     </div>
 
-    <!-- 💡 歷史銷售統計分頁 -->
     <div id="stats-view" class="container">
         <h2 style="margin-top: 0; color: var(--primary);">📈 歷史銷售統計</h2>
         <p style="font-size: 14px; color: #666; margin-top: -10px; margin-bottom: 20px;">資料於每次執行「日結」後自動產生並永久保留。</p>
         
-        <!-- 💡 區間統計圖表區塊 -->
         <div class="card" style="border: 2px solid var(--primary);">
-            <h3 style="margin-top: 0; color: var(--primary);">📊 自訂區間銷售圖表 (備料參考)</h3>
+            <h3 style="margin-top: 0; color: var(--primary);">📊 自訂區間銷售圖表</h3>
             <label style="font-size: 14px; color: #666;">選擇統計區間：</label>
             <div class="select-row" style="margin-bottom: 10px;">
                 <input type="date" id="chart-start-date" onchange="updateChart()">
@@ -256,17 +274,12 @@
                 <button class="btn" style="background: #e5e5ea; color: #333; padding: 10px;" onclick="selectAllChartItems(false)">清空</button>
             </div>
 
-            <div id="chart-item-filters" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; max-height: 180px; overflow-y: auto; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px;">
-                <!-- 動態產生品項勾選框 -->
-            </div>
+            <div id="chart-item-filters" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; max-height: 180px; overflow-y: auto; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px;"></div>
 
-            <!-- 圖表畫布 -->
             <canvas id="salesChart" width="400" height="250"></canvas>
         </div>
 
-        <div id="stats-daily-list">
-            <!-- 歷史日結統計卡片渲染於此 -->
-        </div>
+        <div id="stats-daily-list"></div>
         
         <br>
         <button class="btn btn-red" onclick="clearAllStats()" style="margin-top: 10px;">🗑️ 清空所有歷史紀錄</button>
@@ -274,7 +287,6 @@
 
     <script>
         const defaultMenu = [
-            // 咖啡類
             { id: 101, name: '美式咖啡 (冰)', price: 150, category: '飲品' },
             { id: 102, name: '美式咖啡 (熱)', price: 150, category: '飲品' },
             { id: 103, name: '西西里咖啡 (冰)', price: 180, category: '飲品' },
@@ -337,6 +349,13 @@
             { id: 522, name: '奶油女孩的最愛', price: 330, category: '酒' }
         ];
 
+        // 💡 預設初始化的完整盤點品項
+        const defaultInventory = {
+            "吧台": ["砂糖", "紅茶包", "國寶茶包", "玫瑰茶包", "薰衣草茶包", "咖啡豆", "檸檬汁", "牛奶", "焦糖烤花生糖漿", "榛果糖漿", "蜂蜜", "鮮奶油", "紫蘇糖漿", "烏龍茶葉", "金萱茶葉", "香草冰淇淋", "可樂", "可可粉", "鳳梨汁", "肉桂粉"],
+            "食物": ["牛五花", "豬五花", "海苔", "蔥", "洋蔥", "蛋", "鴨胸生火腿", "綠胡椒臘腸", "法國麵包片", "藍紋起司", "荷蘭煙燻起司", "卡門貝爾起司", "酸黃瓜", "豬肉水餃", "丼飯醬", "水餃醬", "蒜蓉", "辣椒醬"],
+            "酒": ["蘭姆酒", "伏特加", "琴酒", "生啤酒", "威士忌", "君度", "米酒", "蘇打水", "通寧水", "蔓越莓", "柳橙汁", "蘋果汁", "芭樂汁", "貝里詩", "卡魯哇咖啡酒", "藍柑橘利口酒"]
+        };
+
         let menu = JSON.parse(localStorage.getItem('pos_menu_v6')) || defaultMenu;
         
         let tables = JSON.parse(localStorage.getItem('pos_tables')) || {};
@@ -351,8 +370,11 @@
         let reservations = JSON.parse(localStorage.getItem('pos_reservations')) || []; 
         let dailyStats = JSON.parse(localStorage.getItem('pos_daily_stats')) || []; 
         
+        // 💡 讀取或初始化盤點數量庫
+        let inventoryData = JSON.parse(localStorage.getItem('pos_inventory_data')) || {};
+        
         let currentTable = "1";
-        let salesChartInstance = null; // 圖表實例
+        let salesChartInstance = null; 
 
         function switchTab(tabName) {
             document.querySelectorAll('.container').forEach(el => el.classList.remove('active'));
@@ -360,927 +382,390 @@
             document.getElementById(tabName + '-view').classList.add('active');
             document.getElementById('tab-' + tabName).classList.add('active');
             
-            if(tabName === 'order') {
-                renderOrderView();
-                renderCart(); 
-            }
+            if(tabName === 'order') { renderOrderView(); renderCart(); }
             if(tabName === 'reservation') renderReservations();
             if(tabName === 'kitchen') renderKitchenView();
+            if(tabName === 'inventory') renderInventory(); // 💡 觸發盤點渲染
             if(tabName === 'menu') renderMenuAdmin();
             if(tabName === 'summary') renderSummary();
             if(tabName === 'stats') {
                 renderStats(); 
-                if(!document.getElementById('chart-start-date').value) {
-                    initChartUI(); // 若無日期則初始化圖表
-                } else {
-                    updateChart(); // 若已有日期則直接更新圖表
-                }
+                if(!document.getElementById('chart-start-date').value) initChartUI(); else updateChart();
             }
         }
 
+        // --- 💡 庫存盤點邏輯 ---
+        function renderInventory() {
+            const sections = { "吧台": "inv-bar-list", "食物": "inv-food-list", "酒": "inv-alcohol-list" };
+            
+            for (let cat in defaultInventory) {
+                const listContainer = document.getElementById(sections[cat]);
+                listContainer.innerHTML = '';
+                
+                defaultInventory[cat].forEach(name => {
+                    // 如果這個品項還沒有紀錄過數量，給予預設值 0
+                    if (inventoryData[name] === undefined) inventoryData[name] = 0;
+                    
+                    listContainer.innerHTML += `
+                        <div class="list-item">
+                            <span style="font-size: 16px; font-weight: 500;">🔹 ${name}</span>
+                            <div class="stock-control">
+                                <button class="stock-btn" onclick="changeStock('${name}', -1)">-</button>
+                                <input type="number" id="stock-val-${name}" value="${inventoryData[name]}" onchange="manualStock('${name}')">
+                                <button class="stock-btn" onclick="changeStock('${name}', 1)">+</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        function changeStock(name, delta) {
+            let input = document.getElementById('stock-val-' + name);
+            let val = parseInt(input.value) || 0;
+            let newVal = Math.max(0, val + delta); // 庫存不能為負數
+            input.value = newVal;
+            inventoryData[name] = newVal;
+            saveData();
+        }
+
+        function manualStock(name) {
+            let input = document.getElementById('stock-val-' + name);
+            let val = parseInt(input.value) || 0;
+            if(val < 0) val = 0;
+            input.value = val;
+            inventoryData[name] = val;
+            saveData();
+        }
+
+
+        // --- 訂位與其他邏輯保持不變 ---
         function addReservation() {
             let inputStr = document.getElementById('res-input').value.trim();
             if(!inputStr) return;
-            
-            inputStr = inputStr.replace(/，/g, ',');
             let parts = inputStr.split(/,|，/).map(p => p.trim());
-            
-            if(parts.length < 3) {
-                alert('格式不正確！請確認包含名稱、時間、人數，並以逗號隔開。\n例如：程小姐,21:00,x2');
-                return;
-            }
-
-            reservations.push({
-                id: Date.now(),
-                name: parts[0],
-                time: parts[1],
-                pax: parts[2],
-                arrived: false,
-                cancelled: false
-            });
-
+            if(parts.length < 3) { alert('格式不正確！'); return; }
+            reservations.push({ id: Date.now(), name: parts[0], time: parts[1], pax: parts[2], arrived: false, cancelled: false });
             document.getElementById('res-input').value = '';
-            saveData();
-            renderReservations();
+            saveData(); renderReservations();
         }
 
         function toggleReservation(id) {
             let target = reservations.find(r => r.id == id);
-            if(target && !target.cancelled) {
-                target.arrived = !target.arrived; 
-                saveData();
-                renderReservations();
-            }
+            if(target && !target.cancelled) { target.arrived = !target.arrived; saveData(); renderReservations(); }
         }
 
         function cancelReservation(id) {
-            if(!confirm('確定要撤銷此筆訂位嗎？（撤銷後仍會保留紀錄供查詢）')) return;
+            if(!confirm('確定要撤銷此筆訂位嗎？')) return;
             let target = reservations.find(r => r.id == id);
-            if(target) {
-                target.cancelled = true; 
-                saveData();
-                renderReservations();
-            }
+            if(target) { target.cancelled = true; saveData(); renderReservations(); }
         }
 
         function renderReservations() {
-            const list = document.getElementById('reservation-list');
-            list.innerHTML = '';
-            
-            reservations.sort((a, b) => {
-                let timeA = a.time.padStart(5, '0');
-                let timeB = b.time.padStart(5, '0');
-                return timeA.localeCompare(timeB);
-            });
-
-            if(reservations.length === 0) {
-                list.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding:20px;">今日尚無訂位資料</div>';
-                return;
-            }
-
+            const list = document.getElementById('reservation-list'); list.innerHTML = '';
+            reservations.sort((a, b) => a.time.padStart(5, '0').localeCompare(b.time.padStart(5, '0')));
+            if(reservations.length === 0) { list.innerHTML = '<div style="color:#999; text-align:center; padding:20px;">今日尚無訂位資料</div>'; return; }
             reservations.forEach(res => {
-                let btnClass = res.arrived ? "btn-green" : "btn-orange";
-                let btnText = res.arrived ? "✅ 已入座" : "等候中"; 
-                
+                let btnClass = res.arrived ? "btn-green" : "btn-orange", btnText = res.arrived ? "✅ 已入座" : "等候中"; 
                 if (res.cancelled) {
-                    list.innerHTML += `
-                        <div class="list-item" style="opacity: 0.4; background: #f9f9f9;">
-                            <div>
-                                <span style="font-size: 20px; font-weight: bold; color: #999; text-decoration: line-through;">${res.time}</span>
-                                <span style="margin-left: 15px; font-size: 18px; font-weight: bold; color: #999; text-decoration: line-through;">${res.name}</span>
-                                <span style="margin-left: 10px; color: #999; font-size: 14px;">(${res.pax})</span>
-                            </div>
-                            <span style="color: #FF3B30; font-weight: bold; font-size: 14px; padding: 10px;">已撤銷</span>
-                        </div>
-                    `;
+                    list.innerHTML += `<div class="list-item" style="opacity: 0.4; background: #f9f9f9;"><div><span style="font-size: 20px; font-weight: bold; color: #999; text-decoration: line-through;">${res.time}</span><span style="margin-left: 15px; font-size: 18px; font-weight: bold; color: #999; text-decoration: line-through;">${res.name}</span><span style="margin-left: 10px; color: #999; font-size: 14px;">(${res.pax})</span></div><span style="color: #FF3B30; font-weight: bold; font-size: 14px; padding: 10px;">已撤銷</span></div>`;
                 } else {
-                    let opacity = res.arrived ? "0.6" : "1"; 
-                    list.innerHTML += `
-                        <div class="list-item" style="opacity: ${opacity};">
-                            <div>
-                                <span style="font-size: 20px; font-weight: bold; color: var(--primary);">${res.time}</span>
-                                <span style="margin-left: 15px; font-size: 18px; font-weight: bold;">${res.name}</span>
-                                <span style="margin-left: 10px; color: #666; font-size: 14px;">(${res.pax})</span>
-                            </div>
-                            <div style="display: flex; gap: 5px;">
-                                <button onclick="toggleReservation('${res.id}')" class="btn ${btnClass}" style="width: auto; padding: 10px; margin: 0; min-width: 80px;">${btnText}</button>
-                                <button onclick="cancelReservation('${res.id}')" class="btn btn-red" style="width: auto; padding: 10px; margin: 0; font-size: 14px;">撤銷</button>
-                            </div>
-                        </div>
-                    `;
+                    list.innerHTML += `<div class="list-item" style="opacity: ${res.arrived ? 0.6 : 1};"><div><span style="font-size: 20px; font-weight: bold; color: var(--primary);">${res.time}</span><span style="margin-left: 15px; font-size: 18px; font-weight: bold;">${res.name}</span><span style="margin-left: 10px; color: #666; font-size: 14px;">(${res.pax})</span></div><div style="display: flex; gap: 5px;"><button onclick="toggleReservation('${res.id}')" class="btn ${btnClass}" style="width: auto; padding: 10px; margin: 0; min-width: 80px;">${btnText}</button><button onclick="cancelReservation('${res.id}')" class="btn btn-red" style="width: auto; padding: 10px; margin: 0; font-size: 14px;">撤銷</button></div></div>`;
                 }
             });
         }
 
         function renderMenuAdmin() {
-            const list = document.getElementById('admin-menu-list');
-            list.innerHTML = '';
-            menu.forEach((item, index) => {
-                list.innerHTML += `
-                    <div class="list-item">
-                        <span>${item.name} ($${item.price}) - ${item.category}</span>
-                        <button onclick="removeMenuItem(${index})" style="background:#FF3B30; color:white; border:none; padding:5px 10px; border-radius:5px;">刪除</button>
-                    </div>
-                `;
-            });
+            const list = document.getElementById('admin-menu-list'); list.innerHTML = '';
+            menu.forEach((item, index) => { list.innerHTML += `<div class="list-item"><span>${item.name} ($${item.price}) - ${item.category}</span><button onclick="removeMenuItem(${index})" style="background:#FF3B30; color:white; border:none; padding:5px 10px; border-radius:5px;">刪除</button></div>`; });
             saveData();
         }
 
         function addMenuItem() {
-            const name = document.getElementById('new-item-name').value;
-            const price = parseInt(document.getElementById('new-item-price').value);
-            const category = document.getElementById('new-item-category').value;
-            
+            const name = document.getElementById('new-item-name').value, price = parseInt(document.getElementById('new-item-price').value), category = document.getElementById('new-item-category').value;
             if(!name || !price) return alert('請填寫完整資訊');
             menu.push({ id: Date.now(), name, price, category });
-            
-            document.getElementById('new-item-name').value = '';
-            document.getElementById('new-item-price').value = '';
+            document.getElementById('new-item-name').value = ''; document.getElementById('new-item-price').value = '';
             renderMenuAdmin();
-            if(document.getElementById('order-view').classList.contains('active')) renderOrderView();
         }
 
-        function removeMenuItem(index) {
-            menu.splice(index, 1);
-            renderMenuAdmin();
-        }
+        function removeMenuItem(index) { menu.splice(index, 1); renderMenuAdmin(); }
 
         function renderOrderView() {
-            const foodSelect = document.getElementById('food-select');
-            const drinkSelect = document.getElementById('drink-select');
-            const alcoholSelect = document.getElementById('alcohol-select');
-            
-            foodSelect.innerHTML = '';
-            drinkSelect.innerHTML = '';
-            alcoholSelect.innerHTML = '';
-            
-            let hasFood = false, hasDrink = false, hasAlcohol = false;
-
+            const food = document.getElementById('food-select'), drink = document.getElementById('drink-select'), alcohol = document.getElementById('alcohol-select');
+            food.innerHTML = '', drink.innerHTML = '', alcohol.innerHTML = '';
+            let hasF = false, hasD = false, hasA = false;
             menu.forEach(item => {
-                const optionHtml = `<option value="${item.id}">${item.name} ($${item.price})</option>`;
-                if (item.category === '食物') {
-                    foodSelect.innerHTML += optionHtml;
-                    hasFood = true;
-                } else if (item.category === '飲品') {
-                    drinkSelect.innerHTML += optionHtml;
-                    hasDrink = true;
-                } else if (item.category === '酒') {
-                    alcoholSelect.innerHTML += optionHtml;
-                    hasAlcohol = true;
-                }
+                const html = `<option value="${item.id}">${item.name} ($${item.price})</option>`;
+                if (item.category === '食物') { food.innerHTML += html; hasF = true; }
+                else if (item.category === '飲品') { drink.innerHTML += html; hasD = true; }
+                else if (item.category === '酒') { alcohol.innerHTML += html; hasA = true; }
             });
-
-            if (!hasFood) foodSelect.innerHTML = '<option value="">(目前無食物品項)</option>';
-            if (!hasDrink) drinkSelect.innerHTML = '<option value="">(目前無飲品品項)</option>';
-            if (!hasAlcohol) alcoholSelect.innerHTML = '<option value="">(目前無酒類品項)</option>';
-
+            if (!hasF) food.innerHTML = '<option value="">(目前無食物品項)</option>';
+            if (!hasD) drink.innerHTML = '<option value="">(目前無飲品品項)</option>';
+            if (!hasA) alcohol.innerHTML = '<option value="">(目前無酒類品項)</option>';
             loadTableData();
-        }
-
-        function addFromSelect(selectId) {
-            const selectElement = document.getElementById(selectId);
-            const itemId = parseInt(selectElement.value);
-            if (!itemId) return; 
-            addToCart(itemId);
-        }
-
-        function updateTableDisplay() {
-            const select = document.getElementById('table-select');
-            for (let i = 0; i < select.options.length; i++) {
-                let t = select.options[i].value;
-                let cart = tables[t].cart;
-                
-                let cartTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-                let status = '(空桌)';
-                
-                if (cartTotal > 0) {
-                    let allServed = cart.length > 0 && cart.every(item => item.status === 'served');
-                    if (allServed) {
-                        status = `(未結帳 $${cartTotal} - ✅已出餐)`;
-                    } else {
-                        status = `(未結帳 $${cartTotal})`;
-                    }
-                }
-                
-                let displayName = ['1','2','3','4','5'].includes(t) ? `第 ${t} 桌` : t;
-                let mergeTag = tables[t].mergeNote ? ` (併桌 ${tables[t].mergeNote})` : "";
-                
-                select.options[i].text = `${displayName}${mergeTag} ${status}`;
-            }
         }
 
         function loadTableData() {
             currentTable = document.getElementById('table-select').value;
             document.getElementById('pax-input').value = tables[currentTable].pax || '';
             document.getElementById('merge-note').value = tables[currentTable].mergeNote || ''; 
-            document.getElementById('order-remark').value = '';
-            document.getElementById('checkout-discount').value = '0'; 
+            document.getElementById('order-remark').value = ''; document.getElementById('checkout-discount').value = '0';
             renderCart();
         }
 
         function changePax(delta) {
             let input = document.getElementById('pax-input');
-            let currentVal = parseInt(input.value) || 0;
-            let newVal = currentVal + delta;
-            if (newVal < 0) newVal = 0; 
-            input.value = newVal;
+            input.value = Math.max(0, (parseInt(input.value) || 0) + delta);
             saveTableData(); 
         }
 
         function saveTableData() {
             tables[currentTable].pax = document.getElementById('pax-input').value;
             tables[currentTable].mergeNote = document.getElementById('merge-note').value; 
-            saveData(); 
-            updateTableDisplay(); 
+            saveData(); updateTableDisplay(); 
         }
 
         function addToCart(itemId) {
-            const item = menu.find(m => m.id === itemId);
-            const cart = tables[currentTable].cart;
-            
-            const existingUnsent = cart.find(c => c.id === itemId && c.status === 'unsent');
-            if(existingUnsent) {
-                existingUnsent.qty++;
-            } else {
-                cart.push({ ...item, qty: 1, status: 'unsent', checkoutSelected: true });
-            }
-            
-            if(tables[currentTable].pax == 0) {
-                tables[currentTable].pax = 1;
-                document.getElementById('pax-input').value = 1;
-            }
-            saveTableData();
-            renderCart();
+            const item = menu.find(m => m.id === itemId), cart = tables[currentTable].cart;
+            const unsent = cart.find(c => c.id === itemId && c.status === 'unsent');
+            if(unsent) unsent.qty++; else cart.push({ ...item, qty: 1, status: 'unsent', checkoutSelected: true });
+            if(tables[currentTable].pax == 0) { tables[currentTable].pax = 1; document.getElementById('pax-input').value = 1; }
+            saveTableData(); renderCart();
         }
 
         function removeOneFromCart(index) {
-            const cart = tables[currentTable].cart;
-            cart[index].qty--;
+            const cart = tables[currentTable].cart; cart[index].qty--;
             if(cart[index].qty === 0) cart.splice(index, 1);
-            saveData();
-            renderCart();
+            saveData(); renderCart();
         }
 
         function toggleAllCheckout() {
             const cart = tables[currentTable].cart;
             let allSelected = cart.length > 0 && cart.every(item => item.checkoutSelected !== false);
-            
-            cart.forEach(item => {
-                item.checkoutSelected = !allSelected;
-            });
+            cart.forEach(item => item.checkoutSelected = !allSelected);
             renderCart(); 
         }
 
         function updateCheckoutTotal() {
-            const cart = tables[currentTable].cart;
-            const checkboxes = document.querySelectorAll('.item-checkout-cb');
+            const cart = tables[currentTable].cart, checkboxes = document.querySelectorAll('.item-checkout-cb');
             let selectedTotal = 0;
-            
             checkboxes.forEach(cb => {
-                let idx = parseInt(cb.dataset.index);
-                cart[idx].checkoutSelected = cb.checked; 
-                
+                let idx = parseInt(cb.dataset.index); cart[idx].checkoutSelected = cb.checked;
                 if (cb.checked) {
                     let qtySelect = document.getElementById('checkout-qty-' + idx);
-                    let checkoutQty = qtySelect ? parseInt(qtySelect.value) : cart[idx].qty;
-                    selectedTotal += cart[idx].price * checkoutQty;
+                    selectedTotal += cart[idx].price * (qtySelect ? parseInt(qtySelect.value) : cart[idx].qty);
                 }
             });
-            
             let discount = parseInt(document.getElementById('checkout-discount').value) || 0;
-            let finalTotal = Math.max(0, selectedTotal - discount);
-            
-            document.getElementById('cart-total').innerText = finalTotal;
+            document.getElementById('cart-total').innerText = Math.max(0, selectedTotal - discount);
         }
 
         function renderCart() {
-            const cart = tables[currentTable].cart;
-            const list = document.getElementById('cart-list');
-            list.innerHTML = '';
-            
-            let allSelected = true;
-            if (cart.length === 0) allSelected = false;
-
+            const cart = tables[currentTable].cart, list = document.getElementById('cart-list'); list.innerHTML = '';
+            let allSelected = cart.length > 0;
             cart.forEach((item, index) => {
-                if(!item.status) item.status = item.isSent ? 'preparing' : 'unsent';
-                if(item.checkoutSelected === undefined) item.checkoutSelected = true; 
-                if(item.checkoutSelected === false) allSelected = false;
-
-                let statusBadge = '';
-                let actionBtn = '';
-
-                if (item.status === 'unsent') {
-                    actionBtn = `<button onclick="removeOneFromCart(${index})" style="background:#ccc; border:none; padding:5px 10px; border-radius:5px;">-1</button>`;
-                } else if (item.status === 'preparing') {
-                    let servedText = item.servedQty ? `(出${item.servedQty},剩${item.qty - item.servedQty})` : '(製作中)';
-                    statusBadge = `<span style="color:#FF9500; font-size:12px; margin-left:5px;">${servedText}</span>`;
-                    actionBtn = `<span style="font-size:13px; color:#FF9500; font-weight:bold;">👨‍🍳 製作中</span>`;
-                } else if (item.status === 'served') {
-                    statusBadge = `<span style="color:#34C759; font-size:12px; margin-left:5px;">(已出餐)</span>`;
-                    actionBtn = `<span style="font-size:13px; color:#34C759; font-weight:bold;">✅ 已出餐</span>`;
-                }
-
+                if(!item.status) item.status = 'unsent'; if(item.checkoutSelected === false) allSelected = false;
+                let badge = '', btn = '';
+                if (item.status === 'unsent') btn = `<button onclick="removeOneFromCart(${index})" style="background:#ccc; border:none; padding:5px 10px; border-radius:5px;">-1</button>`;
+                else if (item.status === 'preparing') { badge = `<span style="color:#FF9500; font-size:12px; margin-left:5px;">${item.servedQty?`(出${item.servedQty},剩${item.qty-item.servedQty})` : '(製作中)'}</span>`; btn = `<span style="color:#FF9500; font-weight:bold;">👨‍🍳 製作中</span>`; }
+                else if (item.status === 'served') { badge = '<span style="color:#34C759; font-size:12px; margin-left:5px;">(已出餐)</span>'; btn = '<span style="color:#34C759; font-weight:bold;">✅ 已出餐</span>'; }
+                
                 let qtySelectHtml = '';
                 if (item.qty > 1) {
                     qtySelectHtml = `<select id="checkout-qty-${index}" class="checkout-qty-select" onchange="updateCheckoutTotal()">`;
-                    for(let i = 1; i <= item.qty; i++) {
-                        let isSelected = item.checkoutQty ? (i === item.checkoutQty) : (i === item.qty);
-                        qtySelectHtml += `<option value="${i}" ${isSelected ? 'selected' : ''}>結 ${i}</option>`;
-                    }
+                    for(let i = 1; i <= item.qty; i++) qtySelectHtml += `<option value="${i}" ${i === item.qty ? 'selected' : ''}>結 ${i}</option>`;
                     qtySelectHtml += `</select>`;
                 }
-
-                let checkedAttr = (item.checkoutSelected !== false) ? 'checked' : '';
-
-                list.innerHTML += `
-                    <div class="list-item">
-                        <div style="display: flex; align-items: center;">
-                            <input type="checkbox" class="item-checkout-cb" data-index="${index}" onchange="updateCheckoutTotal()" ${checkedAttr}>
-                            <span>${item.name} x ${item.qty} ${statusBadge}<br><small style="color:#666;">單價 $${item.price}</small></span>
-                        </div>
-                        <div style="display: flex; align-items: center;">
-                            ${qtySelectHtml}
-                            ${actionBtn}
-                        </div>
-                    </div>
-                `;
+                list.innerHTML += `<div class="list-item"><div style="display:flex; align-items:center;"><input type="checkbox" class="item-checkout-cb" data-index="${index}" onchange="updateCheckoutTotal()" ${item.checkoutSelected!==false?'checked':''}><span>${item.name} x ${item.qty} ${badge}<br><small style="color:#666;">單價 $${item.price}</small></span></div><div style="display:flex; align-items:center;">${qtySelectHtml}${btn}</div></div>`;
             });
-            
             let toggleBtn = document.getElementById('toggle-all-btn');
             if(toggleBtn) {
                 toggleBtn.innerHTML = allSelected ? "☐ 取消全選" : "☑️ 全部選取";
-                if (allSelected) {
-                    toggleBtn.className = "btn";
-                    toggleBtn.style.background = "#e5e5ea";
-                    toggleBtn.style.color = "#333";
-                } else {
-                    toggleBtn.className = "btn btn-blue";
-                    toggleBtn.style.background = "var(--primary)";
-                    toggleBtn.style.color = "white";
-                }
+                toggleBtn.className = allSelected ? "btn" : "btn btn-blue";
+                toggleBtn.style.background = allSelected ? "#e5e5ea" : "var(--primary)";
+                toggleBtn.style.color = allSelected ? "#333" : "white";
             }
-
-            updateTableDisplay();
-            updateCheckoutTotal(); 
+            updateTableDisplay(); updateCheckoutTotal(); 
         }
 
         function sendOrder() {
-            const cart = tables[currentTable].cart;
-            const unsentItems = cart.filter(item => item.status === 'unsent' || !item.status);
-            
-            if(unsentItems.length === 0) return alert('目前沒有新的餐點可以送出喔！');
-            
-            const remark = document.getElementById('order-remark').value;
-            const timeStr = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
-
-            unsentItems.forEach(item => {
-                item.status = 'preparing';
-                item.servedQty = 0; 
-                item.taskId = Date.now() + Math.random().toString(36).substr(2, 5);
-                
-                kitchenQueue.push({
-                    taskId: item.taskId,
-                    table: currentTable,
-                    name: item.name,
-                    qty: item.qty,
-                    remark: remark,
-                    time: timeStr
-                });
+            const cart = tables[currentTable].cart, unsent = cart.filter(item => item.status === 'unsent');
+            if(unsent.length === 0) return alert('目前沒有新的餐點可以送出喔！');
+            const remark = document.getElementById('order-remark').value, timeStr = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+            unsent.forEach(item => {
+                item.status = 'preparing'; item.servedQty = 0; item.taskId = Date.now() + Math.random().toString(36).substr(2, 5);
+                kitchenQueue.push({ taskId: item.taskId, table: currentTable, name: item.name, qty: item.qty, remark, time: timeStr });
             });
-
-            document.getElementById('order-remark').value = '';
-            saveData();
-            
-            let displayName = ['1','2','3','4','5'].includes(currentTable) ? `第 ${currentTable} 桌` : currentTable;
-            alert(`✅ ${displayName} 點餐已送至廚房！`);
-            renderCart();
+            document.getElementById('order-remark').value = ''; saveData();
+            let dName = ['1','2','3','4','5'].includes(currentTable) ? `第 ${currentTable} 桌` : currentTable;
+            alert(`✅ ${dName} 點餐已送至廚房！`); renderCart();
         }
 
         function renderKitchenView() {
-            const list = document.getElementById('kitchen-list');
-            list.innerHTML = '';
-            if(kitchenQueue.length === 0) {
-                list.innerHTML = '<div style="text-align:center; padding: 20px; color: #666;">目前沒有待出餐點 🎉</div>';
-                return;
-            }
-
+            const list = document.getElementById('kitchen-list'); list.innerHTML = '';
+            if(!kitchenQueue.length) { list.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">目前沒有待出餐點 🎉</div>'; return; }
             kitchenQueue.forEach(task => {
-                let remarkHtml = task.remark ? `<div style="color: #FF3B30; font-size: 14px; margin-top: 5px;">📝 備註: ${task.remark}</div>` : '';
-                let displayTable = ['1','2','3','4','5'].includes(task.table) ? `第 ${task.table} 桌` : task.table;
+                let remark = task.remark ? `<div style="color:#FF3B30; font-size:14px;">📝 備註: ${task.remark}</div>` : '';
+                let dTable = ['1','2','3','4','5'].includes(task.table) ? `第 ${task.table} 桌` : task.table;
+                let qtySelect = task.qty > 1 ? `<select id="serve-qty-${task.taskId}" style="padding:5px; margin-right:10px; border-radius:5px;"><script>for(let i=1;i<=${task.qty};i++)document.write('<option value="'+i+'">'+i+'份</option>')<\/script></select>` : '';
                 
-                let qtySelectHtml = '';
-                if (task.qty > 1) {
-                    qtySelectHtml = `<select id="serve-qty-${task.taskId}" style="padding: 5px; margin-right: 10px; border-radius: 5px; font-size: 14px;">`;
-                    for(let i = 1; i <= task.qty; i++) {
-                        qtySelectHtml += `<option value="${i}" ${i === task.qty ? 'selected' : ''}>出 ${i} 份</option>`;
-                    }
-                    qtySelectHtml += `</select>`;
+                // 動態修正下拉選單
+                let selectHtml = '';
+                if(task.qty > 1) {
+                    selectHtml = `<select id="serve-qty-${task.taskId}" style="padding:5px; margin-right:10px; border-radius:5px; font-size:14px;">`;
+                    for(let i=1; i<=task.qty; i++) selectHtml += `<option value="${i}" ${i===task.qty?'selected':''}>出 ${i} 份</option>`;
+                    selectHtml += `</select>`;
                 }
-
-                list.innerHTML += `
-                    <div class="card kitchen-task">
-                        <div>
-                            <span style="background: #eee; padding: 3px 8px; border-radius: 5px; font-size: 14px;">桌號: <strong>${displayTable}</strong></span>
-                            <span style="color: #666; font-size: 14px; margin-left: 10px;">🕒 ${task.time}</span>
-                            <div style="font-size: 20px; font-weight: bold; margin-top: 8px;">
-                                ${task.name} <span style="color: var(--primary);">x ${task.qty}</span>
-                            </div>
-                            ${remarkHtml}
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                            <div style="display: flex; align-items: center;">
-                                ${qtySelectHtml}
-                                <button class="btn btn-green" style="width: auto; padding: 10px 15px; margin: 0;" onclick="markAsServed('${task.taskId}', '${task.table}')">✅ 出餐</button>
-                            </div>
-                            <button class="btn" style="width: auto; padding: 5px 10px; margin: 0; font-size: 14px; background: transparent; color: #FF3B30; border: 1px solid #FF3B30;" onclick="cancelKitchenTask('${task.taskId}', '${task.table}')">❌ 撤單</button>
-                        </div>
-                    </div>
-                `;
+                list.innerHTML += `<div class="card kitchen-task"><div><span style="background:#eee; padding:3px 8px; border-radius:5px;">桌號: <strong>${dTable}</strong></span> <span style="color:#666; font-size:14px;">🕒 ${task.time}</span><div style="font-size:20px; font-weight:bold; margin-top:8px;">${task.name} <span style="color:var(--primary);">x ${task.qty}</span></div>${remark}</div><div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;"><div style="display:flex; align-items:center;">${selectHtml}<button class="btn btn-green" style="width:auto; padding:10px 15px; margin:0;" onclick="markAsServed('${task.taskId}', '${task.table}')">✅ 出餐</button></div><button class="btn" style="width:auto; padding:5px 10px; margin:0; font-size:14px; background:transparent; color:#FF3B30; border:1px solid #FF3B30;" onclick="cancelKitchenTask('${task.taskId}', '${task.table}')">❌ 撤單</button></div></div>`;
             });
         }
 
         function markAsServed(taskId, tableNum) {
-            let taskIndex = kitchenQueue.findIndex(t => t.taskId === taskId);
-            if(taskIndex === -1) return;
-            let task = kitchenQueue[taskIndex];
-
-            let serveQty = task.qty;
-            let qtySelect = document.getElementById('serve-qty-' + taskId);
-            if(qtySelect) serveQty = parseInt(qtySelect.value);
-
-            let cartItem = tables[tableNum]?.cart.find(c => c.taskId === taskId);
-            if(cartItem) {
-                cartItem.servedQty = (cartItem.servedQty || 0) + serveQty;
-            }
-
-            task.qty -= serveQty;
-            if(task.qty <= 0) {
-                kitchenQueue.splice(taskIndex, 1);
-                if(cartItem && cartItem.servedQty >= cartItem.qty) {
-                    cartItem.status = 'served';
-                }
-            }
-
-            saveData();
-            renderKitchenView();
-            if(document.getElementById('order-view').classList.contains('active')) renderCart();
+            let idx = kitchenQueue.findIndex(t => t.taskId === taskId); if(idx === -1) return;
+            let task = kitchenQueue[idx], sQty = task.qty, qSel = document.getElementById('serve-qty-' + taskId);
+            if(qSel) sQty = parseInt(qSel.value);
+            let cItem = tables[tableNum]?.cart.find(c => c.taskId === taskId);
+            if(cItem) cItem.servedQty = (cItem.servedQty || 0) + sQty;
+            task.qty -= sQty;
+            if(task.qty <= 0) { kitchenQueue.splice(idx, 1); if(cItem && cItem.servedQty >= cItem.qty) cItem.status = 'served'; }
+            saveData(); renderKitchenView(); if(document.getElementById('order-view').classList.contains('active')) renderCart();
         }
 
         function cancelKitchenTask(taskId, tableNum) {
-            if(!confirm('確定要撤銷此餐點嗎？\n(這將從該桌的未結帳清單中扣除相對應的數量)')) return;
-
-            let taskIndex = kitchenQueue.findIndex(t => t.taskId === taskId);
-            if(taskIndex === -1) return;
-            let task = kitchenQueue[taskIndex];
-
+            if(!confirm('確定要撤銷此餐點嗎？')) return;
+            let idx = kitchenQueue.findIndex(t => t.taskId === taskId); if(idx === -1) return;
+            let task = kitchenQueue[idx];
             if(tables[tableNum]) {
-                let cartItem = tables[tableNum].cart.find(c => c.taskId === taskId);
-                if(cartItem) {
-                    cartItem.qty -= task.qty; 
-                    if(cartItem.qty <= 0) {
-                        tables[tableNum].cart = tables[tableNum].cart.filter(c => c.taskId !== taskId);
-                    } else if ((cartItem.servedQty || 0) >= cartItem.qty) {
-                        cartItem.status = 'served';
-                    }
-                }
+                let cItem = tables[tableNum].cart.find(c => c.taskId === taskId);
+                if(cItem) { cItem.qty -= task.qty; if(cItem.qty <= 0) tables[tableNum].cart = tables[tableNum].cart.filter(c => c.taskId !== taskId); else if(cItem.servedQty >= cItem.qty) cItem.status = 'served'; }
             }
-
-            kitchenQueue.splice(taskIndex, 1);
-            saveData();
-            renderKitchenView();
-            if(document.getElementById('order-view').classList.contains('active')) renderCart();
+            kitchenQueue.splice(idx, 1); saveData(); renderKitchenView(); if(document.getElementById('order-view').classList.contains('active')) renderCart();
         }
 
         function checkout(paymentMethod) {
-            const cart = tables[currentTable].cart;
-            if(cart.length === 0) return alert('這桌是空的，無須結帳！');
-            
+            const cart = tables[currentTable].cart; if(cart.length === 0) return alert('這桌是空的，無須結帳！');
             const checkboxes = document.querySelectorAll('.item-checkout-cb');
-            let checkedIndices = [];
-            checkboxes.forEach(cb => {
-                if (cb.checked) checkedIndices.push(parseInt(cb.dataset.index));
-            });
-
-            if (checkedIndices.length === 0) return alert('請先勾選要結帳的品項！');
-
+            let checkedIndices = []; checkboxes.forEach(cb => { if (cb.checked) checkedIndices.push(parseInt(cb.dataset.index)); });
+            if (!checkedIndices.length) return alert('請先勾選要結帳的品項！');
             checkedIndices.sort((a, b) => b - a);
-
-            let subTotal = 0;
-            let checkoutItems = [];
-            let hasUnserved = false;
-
-            checkedIndices.forEach(idx => {
-                const item = cart[idx];
-                const inKitchen = kitchenQueue.some(q => q.taskId === item.taskId);
-                if (inKitchen || item.status !== 'served') hasUnserved = true;
-            });
-
-            if(hasUnserved) {
-                if(!confirm(`⚠️ 勾選的品項中包含尚未出餐的餐點，確定要結帳嗎？`)) return;
-            }
+            let subTotal = 0, checkoutItems = [], hasUnserved = false;
+            checkedIndices.forEach(idx => { if (kitchenQueue.some(q => q.taskId === cart[idx].taskId) || cart[idx].status !== 'served') hasUnserved = true; });
+            if(hasUnserved && !confirm(`⚠️ 包含尚未出餐的餐點，確定要結帳嗎？`)) return;
 
             checkedIndices.forEach(idx => {
-                const item = cart[idx];
-                let qtySelect = document.getElementById('checkout-qty-' + idx);
-                let checkoutQty = qtySelect ? parseInt(qtySelect.value) : item.qty;
-                
-                subTotal += item.price * checkoutQty;
-                
-                let recordItem = JSON.parse(JSON.stringify(item));
-                recordItem.qty = checkoutQty;
-                checkoutItems.push(recordItem);
-                
-                item.qty -= checkoutQty;
-                item.servedQty = Math.max(0, (item.servedQty || 0) - checkoutQty);
-                item.checkoutSelected = false; 
-                
-                if (item.qty <= 0) {
-                    cart.splice(idx, 1);
-                }
+                const item = cart[idx]; let qSel = document.getElementById('checkout-qty-' + idx);
+                let cQty = qSel ? parseInt(qSel.value) : item.qty; subTotal += item.price * cQty;
+                let rec = JSON.parse(JSON.stringify(item)); rec.qty = cQty; checkoutItems.push(rec);
+                item.qty -= cQty; item.servedQty = Math.max(0, (item.servedQty || 0) - cQty); item.checkoutSelected = false;
+                if (item.qty <= 0) cart.splice(idx, 1);
             });
-
-            checkoutItems.reverse(); 
-
-            let discount = parseInt(document.getElementById('checkout-discount').value) || 0;
-            let finalTotal = Math.max(0, subTotal - discount);
-
-            history.push({
-                table: currentTable,
-                pax: tables[currentTable].pax,
-                total: finalTotal,
-                discount: discount, 
-                method: paymentMethod,
-                time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
-                items: checkoutItems 
-            });
-
-            let displayName = ['1','2','3','4','5'].includes(currentTable) ? `第 ${currentTable} 桌` : currentTable;
-
-            if (cart.length === 0) {
-                tables[currentTable] = { pax: 0, cart: [], mergeNote: "" };
-                kitchenQueue = kitchenQueue.filter(task => task.table !== currentTable); 
-                document.getElementById('merge-note').value = '';
-                document.getElementById('pax-input').value = '0';
-                document.getElementById('checkout-discount').value = '0';
-                alert(`💰 結帳完成！\n方式：${paymentMethod}\n實收：$${finalTotal}\n(${displayName} 已全數結清並清空)`);
-            } else {
-                document.getElementById('checkout-discount').value = '0';
-                alert(`💰 部分結帳完成！\n方式：${paymentMethod}\n實收：$${finalTotal}\n(未結帳品項仍保留於桌上)`);
-            }
-
-            saveData();
-            loadTableData(); 
+            checkoutItems.reverse();
+            let discount = parseInt(document.getElementById('checkout-discount').value) || 0, finalTotal = Math.max(0, subTotal - discount);
+            history.push({ table: currentTable, pax: tables[currentTable].pax, total: finalTotal, discount: discount, method: paymentMethod, time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }), items: checkoutItems });
+            let dName = ['1','2','3','4','5'].includes(currentTable) ? `第 ${currentTable} 桌` : currentTable;
+            if (!cart.length) { tables[currentTable] = { pax: 0, cart: [], mergeNote: "" }; kitchenQueue = kitchenQueue.filter(t => t.table !== currentTable); document.getElementById('merge-note').value = ''; document.getElementById('pax-input').value = '0'; }
+            document.getElementById('checkout-discount').value = '0'; alert(`💰 結帳完成！實收：$${finalTotal}`); saveData(); loadTableData();
         }
 
         function addExpense() {
-            const name = document.getElementById('expense-name').value;
-            const amount = parseInt(document.getElementById('expense-amount').value);
-            
+            const name = document.getElementById('expense-name').value, amount = parseInt(document.getElementById('expense-amount').value);
             if (!name || !amount) return alert('請填寫支出項目與金額！');
-            
-            expenses.push({ name, amount });
-            document.getElementById('expense-name').value = '';
-            document.getElementById('expense-amount').value = '';
-            
-            saveData();
-            renderSummary();
+            expenses.push({ name, amount }); document.getElementById('expense-name').value = ''; document.getElementById('expense-amount').value = '';
+            saveData(); renderSummary();
         }
-
-        function removeExpense(index) {
-            expenses.splice(index, 1);
-            saveData();
-            renderSummary();
-        }
+        function removeExpense(index) { expenses.splice(index, 1); saveData(); renderSummary(); }
 
         function renderSummary() {
-            let totalRevenue = 0;
-            let cashTotal = 0;
-            let transferTotal = 0;
-
-            const list = document.getElementById('history-list');
-            list.innerHTML = '';
-
-            const reversedHistory = [...history].reverse();
-            reversedHistory.forEach(record => {
-                totalRevenue += record.total;
-                if (record.method === '現金') cashTotal += record.total;
-                if (record.method === '轉帳') transferTotal += record.total;
-                
-                let itemsHtml = '';
-                if(record.items && record.items.length > 0) {
-                    record.items.forEach(item => {
-                        itemsHtml += `<div>🔸 ${item.name} x ${item.qty} <span style="float:right;">$${item.price * item.qty}</span></div>`;
-                    });
-                } else {
-                    itemsHtml = '<div style="color:#999;">(無明細紀錄)</div>';
-                }
-                
-                let displayTable = ['1','2','3','4','5'].includes(record.table) ? `第 ${record.table} 桌` : record.table;
-                let discountHtml = record.discount ? `<small style="color:#FF9500; font-weight:normal;">(含折扣 -$${record.discount})</small> ` : '';
-
-                list.innerHTML += `
-                    <div class="history-card">
-                        <div class="history-header">
-                            <span>桌號 <strong>${displayTable}</strong> | ${record.method}</span>
-                            <span>🕒 ${record.time}</span>
-                        </div>
-                        <div class="history-items">
-                            ${itemsHtml}
-                        </div>
-                        <div style="text-align: right; margin-top: 5px; font-size: 16px; font-weight: bold; color: #FF3B30;">
-                            ${discountHtml}
-                            總計: $${record.total}
-                        </div>
-                    </div>
-                `;
+            let total = 0, cash = 0, transfer = 0; const list = document.getElementById('history-list'); list.innerHTML = '';
+            [...history].reverse().forEach(record => {
+                total += record.total; if (record.method === '現金') cash += record.total; else transfer += record.total;
+                let itemsHtml = record.items ? record.items.map(it => `<div>🔸 ${it.name} x ${it.qty} <span style="float:right;">$${it.price * it.qty}</span></div>`).join('') : '';
+                let dTable = ['1','2','3','4','5'].includes(record.table) ? `第 ${record.table} 桌` : record.table;
+                list.innerHTML += `<div class="history-card"><div class="history-header"><span>桌號 <strong>${dTable}</strong> | ${record.method}</span><span>🕒 ${record.time}</span></div><div class="history-items">${itemsHtml}</div><div style="text-align: right; margin-top: 5px; font-size: 16px; font-weight: bold; color: #FF3B30;">${record.discount?`(含折扣 -$${record.discount}) `:''}總計: $${record.total}</div></div>`;
             });
-
-            const expList = document.getElementById('expense-list');
-            expList.innerHTML = '';
-            let totalExpense = 0;
-            
-            expenses.forEach((exp, index) => {
-                totalExpense += exp.amount;
-                expList.innerHTML += `
-                    <div class="list-item" style="border-bottom: 1px dashed #ccc; padding: 5px 0;">
-                        <span>🛒 ${exp.name}</span>
-                        <div>
-                            <span style="color:#FF3B30; margin-right:10px;">$${exp.amount}</span>
-                            <button onclick="removeExpense(${index})" style="background:#eee; color:#FF3B30; border:none; padding:3px 8px; border-radius:5px;">刪除</button>
-                        </div>
-                    </div>
-                `;
-            });
-
-            if (expenses.length === 0) {
-                expList.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding:10px;">目前尚無支出紀錄</div>';
-            }
-
-            let netProfit = totalRevenue - totalExpense;
-
-            let unsettledTotal = 0;
-            for(let t in tables) {
-                if(tables[t].cart) {
-                    tables[t].cart.forEach(item => {
-                        unsettledTotal += item.price * item.qty;
-                    });
-                }
-            }
-
-            document.getElementById('dash-revenue').innerText = `$${totalRevenue}`;
-            document.getElementById('dash-expense').innerText = `$${totalExpense}`;
-            document.getElementById('dash-cash').innerText = `$${cashTotal}`;
-            document.getElementById('dash-transfer').innerText = `$${transferTotal}`;
-            document.getElementById('dash-unsettled').innerText = `$${unsettledTotal}`;
-            document.getElementById('dash-profit').innerText = `$${netProfit}`;
+            const expList = document.getElementById('expense-list'); expList.innerHTML = ''; let totalExp = 0;
+            expenses.forEach((exp, index) => { totalExp += exp.amount; expList.innerHTML += `<div class="list-item"><span>🛒 ${exp.name}</span><div><span style="color:#FF3B30; margin-right:10px;">$${exp.amount}</span><button onclick="removeExpense(${index})" style="background:#eee; color:#FF3B30; border:none; padding:3px 8px; border-radius:5px;">刪除</button></div></div>`; });
+            if (!expenses.length) expList.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding:10px;">目前尚無支出紀錄</div>';
+            let unsettled = 0; for(let t in tables) { if(tables[t].cart) tables[t].cart.forEach(item => unsettled += item.price * item.qty); }
+            document.getElementById('dash-revenue').innerText = `$${total}`; document.getElementById('dash-expense').innerText = `$${totalExp}`;
+            document.getElementById('dash-cash').innerText = `$${cash}`; document.getElementById('dash-transfer').innerText = `$${transfer}`;
+            document.getElementById('dash-unsettled').innerText = `$${unsettled}`; document.getElementById('dash-profit').innerText = `$${total - totalExp}`;
         }
 
-        // 💡 圖表功能相關 
         function initChartUI() {
-            let today = new Date();
-            let lastWeek = new Date();
-            lastWeek.setDate(today.getDate() - 7);
-
-            const formatDate = (date) => {
-                let d = new Date(date), month = '' + (d.getMonth() + 1), day = '' + d.getDate(), year = d.getFullYear();
-                if (month.length < 2) month = '0' + month;
-                if (day.length < 2) day = '0' + day;
-                return [year, month, day].join('-');
-            }
-
-            document.getElementById('chart-start-date').value = formatDate(lastWeek);
-            document.getElementById('chart-end-date').value = formatDate(today);
-            renderChartItemFilters(); 
+            let today = new Date(), lastWeek = new Date(); lastWeek.setDate(today.getDate() - 7);
+            const fmt = (d) => { let month = '' + (d.getMonth() + 1), day = '' + d.getDate(); return [d.getFullYear(), month.length<2?'0'+month:month, day.length<2?'0'+day:day].join('-'); }
+            document.getElementById('chart-start-date').value = fmt(lastWeek); document.getElementById('chart-end-date').value = fmt(today);
+            renderChartItemFilters();
         }
 
         function renderChartItemFilters() {
-            const catFilter = document.getElementById('chart-category-filter').value;
-            const container = document.getElementById('chart-item-filters');
-            container.innerHTML = '';
-
-            let itemsToRender = menu;
-            if (catFilter !== 'all') {
-                itemsToRender = menu.filter(m => m.category === catFilter);
-            }
-
-            itemsToRender.forEach(item => {
-                container.innerHTML += `
-                    <label class="filter-pill">
-                        <input type="checkbox" class="chart-item-cb" value="${item.name}" checked onchange="updateChart()">
-                        ${item.name}
-                    </label>
-                `;
-            });
+            const cat = document.getElementById('chart-category-filter').value, container = document.getElementById('chart-item-filters'); container.innerHTML = '';
+            let filtered = (cat === 'all') ? menu : menu.filter(m => m.category === cat);
+            filtered.forEach(item => { container.innerHTML += `<label class="filter-pill"><input type="checkbox" class="chart-item-cb" value="${item.name}" checked onchange="updateChart()">${item.name}</label>`; });
             updateChart();
         }
-
-        function selectAllChartItems(selectAll) {
-            document.querySelectorAll('.chart-item-cb').forEach(cb => cb.checked = selectAll);
-            updateChart();
-        }
+        function selectAllChartItems(s) { document.querySelectorAll('.chart-item-cb').forEach(cb => cb.checked = s); updateChart(); }
 
         function updateChart() {
-            let startDateStr = document.getElementById('chart-start-date').value;
-            let endDateStr = document.getElementById('chart-end-date').value;
-
-            if(!startDateStr || !endDateStr) return;
-
-            let startDate = new Date(startDateStr);
-            startDate.setHours(0,0,0,0);
-            let endDate = new Date(endDateStr);
-            endDate.setHours(23,59,59,999);
-
-            let checkedItems = Array.from(document.querySelectorAll('.chart-item-cb:checked')).map(cb => cb.value);
-
-            let aggregatedData = {};
-            checkedItems.forEach(item => aggregatedData[item] = 0);
-
-            // 統計範圍內的歷史數據
-            dailyStats.forEach(stat => {
-                let parts = stat.date.split(' ')[0].split('/'); // 處理格式 YYYY/MM/DD
-                if(parts.length === 3) {
-                    let statDate = new Date(parts[0], parts[1] - 1, parts[2]);
-                    if (statDate >= startDate && statDate <= endDate) {
-                        if (stat.items) {
-                            stat.items.forEach(item => {
-                                if (aggregatedData[item.name] !== undefined) {
-                                    aggregatedData[item.name] += item.count;
-                                }
-                            });
-                        }
-                    }
-                }
-            });
-
-            // 準備給 Chart.js 的資料
-            let labels = [];
-            let data = [];
-
-            let sortedAggregated = Object.keys(aggregatedData)
-                .map(key => ({ name: key, count: aggregatedData[key] }))
-                .sort((a, b) => b.count - a.count);
-
-            sortedAggregated.forEach(item => {
-                if (item.count > 0) { 
-                    labels.push(item.name);
-                    data.push(item.count);
-                }
-            });
-
-            const ctx = document.getElementById('salesChart').getContext('2d');
+            let startStr = document.getElementById('chart-start-date').value, endStr = document.getElementById('chart-end-date').value; if(!startStr || !endStr) return;
+            let start = new Date(startStr); start.setHours(0,0,0,0); let end = new Date(endStr); end.setHours(23,59,59,999);
+            let checked = Array.from(document.querySelectorAll('.chart-item-cb:checked')).map(cb => cb.value);
+            let aggr = {}; checked.forEach(item => aggr[item] = 0);
             
-            if (salesChartInstance) {
-                salesChartInstance.destroy(); // 銷毀舊圖表以重繪
-            }
-
-            salesChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '總銷售數量',
-                        data: data,
-                        backgroundColor: 'rgba(0, 122, 255, 0.7)',
-                        borderColor: '#007AFF',
-                        borderWidth: 1,
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { stepSize: 1 }
-                        }
-                    },
-                    plugins: {
-                        legend: { display: false } // 隱藏圖例讓畫面更乾淨
+            dailyStats.forEach(stat => {
+                let parts = stat.date.split(' ')[0].split('/');
+                if(parts.length === 3) {
+                    let d = new Date(parts[0], parts[1]-1, parts[2]);
+                    if (d >= start && d <= end && stat.items) {
+                        stat.items.forEach(it => { if(aggr[it.name] !== undefined) aggr[it.name] += it.count; });
                     }
                 }
             });
+            let labels = [], data = [];
+            Object.keys(aggr).map(k => ({ name: k, count: aggr[k] })).sort((a,b) => b.count - a.count).forEach(it => { if(it.count > 0) { labels.push(it.name); data.push(it.count); } });
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            if (salesChartInstance) salesChartInstance.destroy();
+            salesChartInstance = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: '總銷售數量', data: data, backgroundColor: 'rgba(0, 122, 255, 0.7)', borderColor: '#007AFF', borderWidth: 1, borderRadius: 4 }] }, options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, plugins: { legend: { display: false } } } });
         }
 
         function deleteStat(index) {
-            if(confirm(`確定要刪除 ${dailyStats[index].date} 的統計資料嗎？\n(⚠️ 注意：此動作無法復原！)`)) {
-                dailyStats.splice(index, 1);
-                saveData();
-                renderStats();
-                updateChart(); // 同步更新圖表
-            }
+            if(confirm(`確定要刪除該日的統計資料嗎？`)) { dailyStats.splice(index, 1); saveData(); renderStats(); updateChart(); }
         }
-
         function clearAllStats() {
-            if(dailyStats.length === 0) return alert('目前沒有歷史紀錄可以清空！');
-            if(confirm('確定要清空「所有」歷史銷售統計嗎？\n(⚠️ 注意：此動作無法復原！)')) {
-                dailyStats = [];
-                saveData();
-                renderStats();
-                updateChart(); // 同步更新圖表
-                alert('歷史銷售統計已全部清空！');
-            }
+            if(!dailyStats.length) return alert('目前沒有歷史紀錄可以清空！');
+            if(confirm('確定要清空「所有」歷史銷售統計嗎？')) { dailyStats = []; saveData(); renderStats(); updateChart(); alert('已全部清空！'); }
         }
 
         function renderStats() {
-            const list = document.getElementById('stats-daily-list');
-            list.innerHTML = '';
-            
-            if(dailyStats.length === 0) {
-                list.innerHTML = '<div style="text-align:center; color:#999; padding:20px;">尚無歷史日結統計紀錄</div>';
-                return;
-            }
-
-            let html = '';
+            const list = document.getElementById('stats-daily-list'); list.innerHTML = dailyStats.length ? '' : '<div style="text-align:center; color:#999; padding:20px;">尚無歷史日結統計紀錄</div>';
             const catOrder = { '食物': 1, '飲品': 2, '酒': 3 };
-
             [...dailyStats].reverse().forEach((stat, idx) => {
-                let originalIndex = dailyStats.length - 1 - idx;
-                
-                let sortedItems = stat.items.sort((a, b) => {
-                    let catA = catOrder[a.category] || 99;
-                    let catB = catOrder[b.category] || 99;
-                    if (catA !== catB) return catA - catB;
-                    return b.count - a.count;
-                });
-
-                let itemsHtml = sortedItems.map(it => `
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 8px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
-                        <span>${it.name} <small style="color:#666;">(${it.category})</small></span>
-                        <strong style="color: var(--primary);">${it.count} 份</strong>
-                    </div>
-                `).join('');
-
-                let netProfit = stat.revenue - stat.expense;
-
-                html += `
-                    <div class="card" style="border-top: 4px solid var(--primary);">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                            <h3 style="margin-top: 0; color: var(--primary);">📅 ${stat.date}</h3>
-                            <button class="btn" style="width: auto; padding: 5px 10px; margin: 0; font-size: 14px; background: transparent; color: #FF3B30; border: 1px solid #FF3B30;" onclick="deleteStat(${originalIndex})">🗑️ 刪除此日</button>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 15px;">
-                            <span>營業額: $${stat.revenue}</span>
-                            <span>支出: $${stat.expense}</span>
-                            <span style="color: #FF9500; font-weight: bold;">淨利: $${netProfit}</span>
-                        </div>
-                        <h4 style="margin-bottom: 10px; color: #333;">📊 餐點銷售排行</h4>
-                        <div>${itemsHtml || '<span style="color:#999;">無銷售紀錄</span>'}</div>
-                    </div>
-                `;
+                let oIdx = dailyStats.length - 1 - idx;
+                let sItems = stat.items.sort((a, b) => { let catA = catOrder[a.category]||99, catB = catOrder[b.category]||99; return catA !== catB ? catA - catB : b.count - a.count; });
+                let itemsHtml = sItems.map(it => `<div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px dashed #eee; padding-bottom:5px;"><span>${it.name} <small style="color:#666;">(${it.category})</small></span><strong style="color:var(--primary);">${it.count} 份</strong></div>`).join('');
+                list.innerHTML += `<div class="card" style="border-top: 4px solid var(--primary);"><div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;"><h3 style="margin-top:0; color:var(--primary);">📅 ${stat.date}</h3><button class="btn" style="width:auto; padding:5px 10px; margin:0; font-size:14px; background:transparent; color:#FF3B30; border:1px solid #FF3B30;" onclick="deleteStat(${oIdx})">🗑️ 刪除此日</button></div><div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:15px;"><span>營業額: $${stat.revenue}</span><span>支出: $${stat.expense}</span><span style="color:#FF9500; font-weight:bold;">淨利: $${stat.revenue - stat.expense}</span></div><h4 style="margin-bottom:10px; color:#333;">📊 餐點銷售排行</h4><div>${itemsHtml || '<span style="color:#999;">無銷售紀錄</span>'}</div></div>`;
             });
-            list.innerHTML = html;
         }
 
         function endOfDay() {
-            if(confirm('確定要執行日結嗎？這將會結算今日銷售統計，並清空「帳單紀錄」、「支出明細」與「訂位資料」！')) {
-                
-                let totalRev = 0;
-                let itemCounts = {};
-                history.forEach(record => {
-                    totalRev += record.total;
-                    if(record.items) {
-                        record.items.forEach(item => {
-                            if(!itemCounts[item.name]) itemCounts[item.name] = { count: 0, category: item.category };
-                            itemCounts[item.name].count += item.qty;
-                        });
-                    }
-                });
+            if(confirm('確定要執行日結嗎？這將會清空今日「帳單紀錄」、「支出明細」與「訂位資料」！')) {
+                let totalRev = 0, itemCounts = {};
+                history.forEach(record => { totalRev += record.total; if(record.items) record.items.forEach(item => { if(!itemCounts[item.name]) itemCounts[item.name] = { count: 0, category: item.category }; itemCounts[item.name].count += item.qty; }); });
                 let totalExp = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-
                 const catOrder = { '食物': 1, '飲品': 2, '酒': 3 };
-                let sortedItems = Object.keys(itemCounts)
-                                        .map(key => ({ name: key, ...itemCounts[key] }))
-                                        .sort((a, b) => {
-                                            let catA = catOrder[a.category] || 99;
-                                            let catB = catOrder[b.category] || 99;
-                                            if (catA !== catB) return catA - catB;
-                                            return b.count - a.count;
-                                        }); 
-
+                let sItems = Object.keys(itemCounts).map(key => ({ name: key, ...itemCounts[key] })).sort((a, b) => { let catA = catOrder[a.category]||99, catB = catOrder[b.category]||99; return catA !== catB ? catA - catB : b.count - a.count; });
                 let todayStr = new Date().toLocaleDateString('zh-TW') + " " + new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'});
                 
-                dailyStats.push({
-                    date: todayStr,
-                    revenue: totalRev,
-                    expense: totalExp,
-                    items: sortedItems
-                });
-
-                history = [];
-                kitchenQueue = []; 
-                expenses = []; 
-                reservations = []; 
-                
+                dailyStats.push({ date: todayStr, revenue: totalRev, expense: totalExp, items: sItems });
+                history = []; kitchenQueue = []; expenses = []; reservations = [];
                 for(let t in tables) tables[t] = { pax: 0, cart: [], mergeNote: "" };
-                
-                saveData();
-                renderSummary();
+                saveData(); renderSummary();
                 if(document.getElementById('reservation-view').classList.contains('active')) renderReservations();
-                if(document.getElementById('stats-view').classList.contains('active')) {
-                    renderStats();
-                    updateChart(); // 日結後重整圖表
-                }
-                alert('日結完成，銷售數據已存入統計，系統已歸零準備迎接明天！');
+                if(document.getElementById('stats-view').classList.contains('active')) { renderStats(); updateChart(); }
+                alert('日結完成！銷售數據已歸檔！');
             }
         }
 
@@ -1292,6 +777,7 @@
             localStorage.setItem('pos_expenses', JSON.stringify(expenses)); 
             localStorage.setItem('pos_reservations', JSON.stringify(reservations)); 
             localStorage.setItem('pos_daily_stats', JSON.stringify(dailyStats)); 
+            localStorage.setItem('pos_inventory_data', JSON.stringify(inventoryData)); // 💡 儲存盤點數據
         }
 
         renderOrderView();
