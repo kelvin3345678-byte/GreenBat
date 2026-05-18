@@ -52,7 +52,6 @@
         .filter-pill { display: flex; align-items: center; gap: 5px; font-size: 14px; background: #f0f0f0; padding: 8px 12px; border-radius: 20px; cursor: pointer; border: 1px solid #ddd; white-space: nowrap;}
         .filter-pill input { margin: 0; width: 16px; height: 16px; accent-color: var(--primary);}
 
-        /* 💡 庫存盤點專屬樣式 */
         .inv-item { background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #eee; transition: all 0.3s ease; }
         .inv-item.warning { border-color: #FF3B30; background-color: #fff0f0; }
         .inv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; font-size: 16px; }
@@ -60,6 +59,16 @@
         .inv-inputs div { flex: 1; display: flex; flex-direction: column; font-size: 12px; color: #666; text-align: center;}
         .inv-inputs input { margin: 2px 0 0 0; padding: 8px 5px; font-size: 15px; text-align: center; border-radius: 6px; border: 1px solid #ccc; }
         .inv-item.warning input.stock-input { color: #FF3B30; font-weight: bold; border-color: #FF3B30; }
+
+        /* 💡 隱藏所有 number 輸入框的上下按鈕 (Spinners) */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield; /* Firefox 隱藏箭頭 */
+        }
     </style>
 </head>
 <body>
@@ -326,14 +335,10 @@
             { id: 302, name: '漂浮咖啡 (冰)', price: 170, category: '飲品' },
             { id: 303, name: '鮮奶油可可飲 (冰)', price: 180, category: '飲品' },
             { id: 304, name: '鮮奶油可可飲 (熱)', price: 180, category: '飲品' },
-            
-            // 食物
             { id: 401, name: '牛五花丼飯', price: 230, category: '食物' },
             { id: 402, name: '豬五花丼飯', price: 220, category: '食物' },
             { id: 403, name: '香料火腿起司拼盤', price: 380, category: '食物' },
             { id: 404, name: '高麗菜豬肉水餃', price: 150, category: '食物' },
-            
-            // 酒類
             { id: 501, name: '生啤酒', price: 180, category: '酒' },
             { id: 502, name: '奶油檸檬餅乾', price: 400, category: '酒' },
             { id: 503, name: '部落藍調', price: 330, category: '酒' },
@@ -380,13 +385,11 @@
         
         let inventoryData = JSON.parse(localStorage.getItem('pos_inventory_data')) || {};
         
-        // 💡 庫存資料升級移轉邏輯 (處理舊資料並加上單位、警戒值、前次紀錄)
         for (let cat in defaultInventory) {
             defaultInventory[cat].forEach(name => {
                 if (inventoryData[name] === undefined) {
                     inventoryData[name] = { stock: 0, unit: '', threshold: 0, lastStock: 0, lastDate: '' };
                 } else if (typeof inventoryData[name] === 'number') {
-                    // 若是舊版的純數字格式，升級為物件格式
                     inventoryData[name] = { stock: inventoryData[name], unit: '', threshold: 0, lastStock: 0, lastDate: '' };
                 }
             });
@@ -404,7 +407,7 @@
             if(tabName === 'order') { renderOrderView(); renderCart(); }
             if(tabName === 'reservation') renderReservations();
             if(tabName === 'kitchen') renderKitchenView();
-            if(tabName === 'inventory') renderInventory();
+            if(tabName === 'inventory') renderInventory(); 
             if(tabName === 'menu') renderMenuAdmin();
             if(tabName === 'summary') renderSummary();
             if(tabName === 'stats') {
@@ -413,7 +416,6 @@
             }
         }
 
-        // --- 💡 庫存盤點邏輯更新 ---
         function renderInventory() {
             const sections = { "吧台": "inv-bar-list", "食物": "inv-food-list", "酒": "inv-alcohol-list" };
             
@@ -423,12 +425,12 @@
                 
                 defaultInventory[cat].forEach(name => {
                     let data = inventoryData[name];
-                    // 只有當 threshold > 0 且庫存低於警戒值時才警示
                     let isWarning = data.threshold > 0 && data.stock <= data.threshold;
                     let warningClass = isWarning ? 'warning' : '';
                     let warningText = isWarning ? '<span style="color:#FF3B30; font-size:12px;">⚠️ 需補貨</span>' : '';
                     let lastRecord = data.lastDate ? `${data.lastDate} (${data.lastStock} ${data.unit})` : '無紀錄';
 
+                    // 💡 更新：移除 +/- 按鈕，使用 step="any" 允許小數點輸入
                     listContainer.innerHTML += `
                         <div class="inv-item ${warningClass}">
                             <div class="inv-header">
@@ -437,8 +439,8 @@
                             </div>
                             <div class="inv-inputs">
                                 <div>單位 <input type="text" placeholder="如:包" value="${data.unit}" onchange="updateInvData('${name}', 'unit', this.value)"></div>
-                                <div>警戒值 <input type="number" placeholder="0" value="${data.threshold}" onchange="updateInvData('${name}', 'threshold', this.value)"></div>
-                                <div>目前庫存 <input class="stock-input" type="number" placeholder="0" value="${data.stock}" onchange="updateInvData('${name}', 'stock', this.value)"></div>
+                                <div>警戒值 <input type="number" step="any" placeholder="0" value="${data.threshold}" onchange="updateInvData('${name}', 'threshold', this.value)"></div>
+                                <div>目前庫存 <input class="stock-input" type="number" step="any" placeholder="0" value="${data.stock}" onchange="updateInvData('${name}', 'stock', this.value)"></div>
                             </div>
                         </div>
                     `;
@@ -447,13 +449,14 @@
         }
 
         function updateInvData(name, field, value) {
+            // 💡 更新：使用 parseFloat 以支援小數點輸入
             if(field === 'stock' || field === 'threshold') {
-                value = parseInt(value) || 0;
+                value = parseFloat(value) || 0;
                 if(value < 0) value = 0;
             }
             inventoryData[name][field] = value;
             saveData();
-            renderInventory(); // 即時重新渲染以更新警示顏色
+            renderInventory(); 
         }
 
         function recordAllStock() {
@@ -469,7 +472,6 @@
             alert('庫存紀錄已更新！');
         }
 
-        // --- 訂位與其他邏輯 ---
         function addReservation() {
             let inputStr = document.getElementById('res-input').value.trim();
             if(!inputStr) return;
@@ -692,9 +694,8 @@
             let discount = parseInt(document.getElementById('checkout-discount').value) || 0, finalTotal = Math.max(0, subTotal - discount);
             history.push({ table: currentTable, pax: tables[currentTable].pax, total: finalTotal, discount: discount, method: paymentMethod, time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }), items: checkoutItems });
             let dName = ['1','2','3','4','5'].includes(currentTable) ? `第 ${currentTable} 桌` : currentTable;
-            if (!cart.length) { tables[currentTable] = { pax: 0, cart: [], mergeNote: "" }; kitchenQueue = kitchenQueue.filter(t => t.table !== currentTable); document.getElementById('merge-note').value = ''; document.getElementById('pax-input').value = '0'; document.getElementById('checkout-discount').value = '0'; alert(`💰 結帳完成！實收：$${finalTotal}`); }
-            else { document.getElementById('checkout-discount').value = '0'; alert(`💰 部分結帳完成！實收：$${finalTotal}`); }
-            saveData(); loadTableData();
+            if (!cart.length) { tables[currentTable] = { pax: 0, cart: [], mergeNote: "" }; kitchenQueue = kitchenQueue.filter(t => t.table !== currentTable); document.getElementById('merge-note').value = ''; document.getElementById('pax-input').value = '0'; }
+            document.getElementById('checkout-discount').value = '0'; alert(`💰 結帳完成！實收：$${finalTotal}`); saveData(); loadTableData();
         }
 
         function addExpense() {
