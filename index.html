@@ -52,10 +52,14 @@
         .filter-pill { display: flex; align-items: center; gap: 5px; font-size: 14px; background: #f0f0f0; padding: 8px 12px; border-radius: 20px; cursor: pointer; border: 1px solid #ddd; white-space: nowrap;}
         .filter-pill input { margin: 0; width: 16px; height: 16px; accent-color: var(--primary);}
 
-        /* 💡 庫存小控制項樣式 */
-        .stock-control { display: flex; align-items: center; gap: 5px; }
-        .stock-control input { width: 60px; height: 35px; text-align: center; padding: 5px; margin: 0; font-size: 15px; font-weight: bold;}
-        .stock-btn { background: #e5e5ea; border: none; width: 35px; height: 35px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; color: var(--primary); display: flex; align-items: center; justify-content: center;}
+        /* 💡 庫存盤點專屬樣式 */
+        .inv-item { background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #eee; transition: all 0.3s ease; }
+        .inv-item.warning { border-color: #FF3B30; background-color: #fff0f0; }
+        .inv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; font-size: 16px; }
+        .inv-inputs { display: flex; gap: 8px; }
+        .inv-inputs div { flex: 1; display: flex; flex-direction: column; font-size: 12px; color: #666; text-align: center;}
+        .inv-inputs input { margin: 2px 0 0 0; padding: 8px 5px; font-size: 15px; text-align: center; border-radius: 6px; border: 1px solid #ccc; }
+        .inv-item.warning input.stock-input { color: #FF3B30; font-weight: bold; border-color: #FF3B30; }
     </style>
 </head>
 <body>
@@ -169,8 +173,13 @@
 
     <div id="inventory-view" class="container">
         <div class="card">
-            <h2 style="margin-top: 0; color: var(--primary);">📋 庫存實時盤點</h2>
-            <p style="font-size: 14px; color: #666; margin-top: -10px;">打烊或交班時清點數量使用，資料獨立保存，日結不會被清空。</p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <div>
+                    <h2 style="margin: 0; color: var(--primary);">📋 庫存實時盤點</h2>
+                    <p style="font-size: 13px; color: #666; margin-top: 5px; margin-bottom: 0;">低於警戒值會顯示紅色。資料獨立保存跨日不消失。</p>
+                </div>
+            </div>
+            <button class="btn btn-orange" style="margin-bottom: 20px;" onclick="recordAllStock()">💾 將目前庫存記錄為「前次紀錄」</button>
             
             <h3 style="color: #007AFF; border-bottom: 2px solid #007AFF; padding-bottom: 5px;">☕ 分類1─吧台</h3>
             <div id="inv-bar-list"></div>
@@ -349,7 +358,6 @@
             { id: 522, name: '奶油女孩的最愛', price: 330, category: '酒' }
         ];
 
-        // 💡 預設初始化的完整盤點品項
         const defaultInventory = {
             "吧台": ["砂糖", "紅茶包", "國寶茶包", "玫瑰茶包", "薰衣草茶包", "咖啡豆", "檸檬汁", "牛奶", "焦糖烤花生糖漿", "榛果糖漿", "蜂蜜", "鮮奶油", "紫蘇糖漿", "烏龍茶葉", "金萱茶葉", "香草冰淇淋", "可樂", "可可粉", "鳳梨汁", "肉桂粉"],
             "食物": ["牛五花", "豬五花", "海苔", "蔥", "洋蔥", "蛋", "鴨胸生火腿", "綠胡椒臘腸", "法國麵包片", "藍紋起司", "荷蘭煙燻起司", "卡門貝爾起司", "酸黃瓜", "豬肉水餃", "丼飯醬", "水餃醬", "蒜蓉", "辣椒醬"],
@@ -370,9 +378,20 @@
         let reservations = JSON.parse(localStorage.getItem('pos_reservations')) || []; 
         let dailyStats = JSON.parse(localStorage.getItem('pos_daily_stats')) || []; 
         
-        // 💡 讀取或初始化盤點數量庫
         let inventoryData = JSON.parse(localStorage.getItem('pos_inventory_data')) || {};
         
+        // 💡 庫存資料升級移轉邏輯 (處理舊資料並加上單位、警戒值、前次紀錄)
+        for (let cat in defaultInventory) {
+            defaultInventory[cat].forEach(name => {
+                if (inventoryData[name] === undefined) {
+                    inventoryData[name] = { stock: 0, unit: '', threshold: 0, lastStock: 0, lastDate: '' };
+                } else if (typeof inventoryData[name] === 'number') {
+                    // 若是舊版的純數字格式，升級為物件格式
+                    inventoryData[name] = { stock: inventoryData[name], unit: '', threshold: 0, lastStock: 0, lastDate: '' };
+                }
+            });
+        }
+
         let currentTable = "1";
         let salesChartInstance = null; 
 
@@ -385,7 +404,7 @@
             if(tabName === 'order') { renderOrderView(); renderCart(); }
             if(tabName === 'reservation') renderReservations();
             if(tabName === 'kitchen') renderKitchenView();
-            if(tabName === 'inventory') renderInventory(); // 💡 觸發盤點渲染
+            if(tabName === 'inventory') renderInventory();
             if(tabName === 'menu') renderMenuAdmin();
             if(tabName === 'summary') renderSummary();
             if(tabName === 'stats') {
@@ -394,7 +413,7 @@
             }
         }
 
-        // --- 💡 庫存盤點邏輯 ---
+        // --- 💡 庫存盤點邏輯更新 ---
         function renderInventory() {
             const sections = { "吧台": "inv-bar-list", "食物": "inv-food-list", "酒": "inv-alcohol-list" };
             
@@ -403,16 +422,23 @@
                 listContainer.innerHTML = '';
                 
                 defaultInventory[cat].forEach(name => {
-                    // 如果這個品項還沒有紀錄過數量，給予預設值 0
-                    if (inventoryData[name] === undefined) inventoryData[name] = 0;
-                    
+                    let data = inventoryData[name];
+                    // 只有當 threshold > 0 且庫存低於警戒值時才警示
+                    let isWarning = data.threshold > 0 && data.stock <= data.threshold;
+                    let warningClass = isWarning ? 'warning' : '';
+                    let warningText = isWarning ? '<span style="color:#FF3B30; font-size:12px;">⚠️ 需補貨</span>' : '';
+                    let lastRecord = data.lastDate ? `${data.lastDate} (${data.lastStock} ${data.unit})` : '無紀錄';
+
                     listContainer.innerHTML += `
-                        <div class="list-item">
-                            <span style="font-size: 16px; font-weight: 500;">🔹 ${name}</span>
-                            <div class="stock-control">
-                                <button class="stock-btn" onclick="changeStock('${name}', -1)">-</button>
-                                <input type="number" id="stock-val-${name}" value="${inventoryData[name]}" onchange="manualStock('${name}')">
-                                <button class="stock-btn" onclick="changeStock('${name}', 1)">+</button>
+                        <div class="inv-item ${warningClass}">
+                            <div class="inv-header">
+                                <span style="${isWarning ? 'color:#FF3B30;' : ''}">🔹 ${name} ${warningText}</span>
+                                <span style="font-size: 12px; color: #999; font-weight: normal;">前次: ${lastRecord}</span>
+                            </div>
+                            <div class="inv-inputs">
+                                <div>單位 <input type="text" placeholder="如:包" value="${data.unit}" onchange="updateInvData('${name}', 'unit', this.value)"></div>
+                                <div>警戒值 <input type="number" placeholder="0" value="${data.threshold}" onchange="updateInvData('${name}', 'threshold', this.value)"></div>
+                                <div>目前庫存 <input class="stock-input" type="number" placeholder="0" value="${data.stock}" onchange="updateInvData('${name}', 'stock', this.value)"></div>
                             </div>
                         </div>
                     `;
@@ -420,26 +446,30 @@
             }
         }
 
-        function changeStock(name, delta) {
-            let input = document.getElementById('stock-val-' + name);
-            let val = parseInt(input.value) || 0;
-            let newVal = Math.max(0, val + delta); // 庫存不能為負數
-            input.value = newVal;
-            inventoryData[name] = newVal;
+        function updateInvData(name, field, value) {
+            if(field === 'stock' || field === 'threshold') {
+                value = parseInt(value) || 0;
+                if(value < 0) value = 0;
+            }
+            inventoryData[name][field] = value;
             saveData();
+            renderInventory(); // 即時重新渲染以更新警示顏色
         }
 
-        function manualStock(name) {
-            let input = document.getElementById('stock-val-' + name);
-            let val = parseInt(input.value) || 0;
-            if(val < 0) val = 0;
-            input.value = val;
-            inventoryData[name] = val;
+        function recordAllStock() {
+            if(!confirm('確定要將今日輸入的「目前庫存」結算為「前次紀錄」嗎？\n(這將方便您明天比對消耗量)')) return;
+            
+            let todayStr = new Date().toLocaleDateString('zh-TW', {month: '2-digit', day: '2-digit'});
+            for(let key in inventoryData) {
+                inventoryData[key].lastStock = inventoryData[key].stock;
+                inventoryData[key].lastDate = todayStr;
+            }
             saveData();
+            renderInventory();
+            alert('庫存紀錄已更新！');
         }
 
-
-        // --- 訂位與其他邏輯保持不變 ---
+        // --- 訂位與其他邏輯 ---
         function addReservation() {
             let inputStr = document.getElementById('res-input').value.trim();
             if(!inputStr) return;
@@ -575,7 +605,7 @@
                 let qtySelectHtml = '';
                 if (item.qty > 1) {
                     qtySelectHtml = `<select id="checkout-qty-${index}" class="checkout-qty-select" onchange="updateCheckoutTotal()">`;
-                    for(let i = 1; i <= item.qty; i++) qtySelectHtml += `<option value="${i}" ${i === item.qty ? 'selected' : ''}>結 ${i}</option>`;
+                    for(let i = 1; i <= item.qty; i++) qtySelectHtml += `<option value="${i}" ${i === item.checkoutQty ? 'selected' : ''}>結 ${i}</option>`;
                     qtySelectHtml += `</select>`;
                 }
                 list.innerHTML += `<div class="list-item"><div style="display:flex; align-items:center;"><input type="checkbox" class="item-checkout-cb" data-index="${index}" onchange="updateCheckoutTotal()" ${item.checkoutSelected!==false?'checked':''}><span>${item.name} x ${item.qty} ${badge}<br><small style="color:#666;">單價 $${item.price}</small></span></div><div style="display:flex; align-items:center;">${qtySelectHtml}${btn}</div></div>`;
@@ -609,9 +639,6 @@
             kitchenQueue.forEach(task => {
                 let remark = task.remark ? `<div style="color:#FF3B30; font-size:14px;">📝 備註: ${task.remark}</div>` : '';
                 let dTable = ['1','2','3','4','5'].includes(task.table) ? `第 ${task.table} 桌` : task.table;
-                let qtySelect = task.qty > 1 ? `<select id="serve-qty-${task.taskId}" style="padding:5px; margin-right:10px; border-radius:5px;"><script>for(let i=1;i<=${task.qty};i++)document.write('<option value="'+i+'">'+i+'份</option>')<\/script></select>` : '';
-                
-                // 動態修正下拉選單
                 let selectHtml = '';
                 if(task.qty > 1) {
                     selectHtml = `<select id="serve-qty-${task.taskId}" style="padding:5px; margin-right:10px; border-radius:5px; font-size:14px;">`;
@@ -639,7 +666,7 @@
             let task = kitchenQueue[idx];
             if(tables[tableNum]) {
                 let cItem = tables[tableNum].cart.find(c => c.taskId === taskId);
-                if(cItem) { cItem.qty -= task.qty; if(cItem.qty <= 0) tables[tableNum].cart = tables[tableNum].cart.filter(c => c.taskId !== taskId); else if(cItem.servedQty >= cItem.qty) cItem.status = 'served'; }
+                if(cItem) { cItem.qty -= task.qty; if(cItem.qty <= 0) tables[tableNum].cart = tables[tableNum].cart.filter(c => c.taskId !== taskId); else if((cItem.servedQty||0) >= cItem.qty) cItem.status = 'served'; }
             }
             kitchenQueue.splice(idx, 1); saveData(); renderKitchenView(); if(document.getElementById('order-view').classList.contains('active')) renderCart();
         }
@@ -665,8 +692,9 @@
             let discount = parseInt(document.getElementById('checkout-discount').value) || 0, finalTotal = Math.max(0, subTotal - discount);
             history.push({ table: currentTable, pax: tables[currentTable].pax, total: finalTotal, discount: discount, method: paymentMethod, time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }), items: checkoutItems });
             let dName = ['1','2','3','4','5'].includes(currentTable) ? `第 ${currentTable} 桌` : currentTable;
-            if (!cart.length) { tables[currentTable] = { pax: 0, cart: [], mergeNote: "" }; kitchenQueue = kitchenQueue.filter(t => t.table !== currentTable); document.getElementById('merge-note').value = ''; document.getElementById('pax-input').value = '0'; }
-            document.getElementById('checkout-discount').value = '0'; alert(`💰 結帳完成！實收：$${finalTotal}`); saveData(); loadTableData();
+            if (!cart.length) { tables[currentTable] = { pax: 0, cart: [], mergeNote: "" }; kitchenQueue = kitchenQueue.filter(t => t.table !== currentTable); document.getElementById('merge-note').value = ''; document.getElementById('pax-input').value = '0'; document.getElementById('checkout-discount').value = '0'; alert(`💰 結帳完成！實收：$${finalTotal}`); }
+            else { document.getElementById('checkout-discount').value = '0'; alert(`💰 部分結帳完成！實收：$${finalTotal}`); }
+            saveData(); loadTableData();
         }
 
         function addExpense() {
@@ -777,7 +805,7 @@
             localStorage.setItem('pos_expenses', JSON.stringify(expenses)); 
             localStorage.setItem('pos_reservations', JSON.stringify(reservations)); 
             localStorage.setItem('pos_daily_stats', JSON.stringify(dailyStats)); 
-            localStorage.setItem('pos_inventory_data', JSON.stringify(inventoryData)); // 💡 儲存盤點數據
+            localStorage.setItem('pos_inventory_data', JSON.stringify(inventoryData));
         }
 
         renderOrderView();
