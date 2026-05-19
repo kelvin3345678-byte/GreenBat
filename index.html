@@ -183,11 +183,11 @@
         <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
                 <div>
-                    <h2 style="margin: 0; color: var(--primary);">📋 庫存實時盤點</h2>
-                    <p style="font-size: 13px; color: #666; margin-top: 5px; margin-bottom: 0;">低於警戒值會顯示紅色。資料獨立保存跨日不消失。</p>
+                    <h2 style="margin: 0; color: var(--primary);">📋 庫存盤點</h2>
+                    <p style="font-size: 13px; color: #666; margin-top: 5px; margin-bottom: 0;">低於警戒值會顯示紅色並自動置頂。</p>
                 </div>
             </div>
-            <button class="btn btn-orange" style="margin-bottom: 20px;" onclick="recordAllStock()">💾 將目前庫存記錄為「前次紀錄」</button>
+            <button class="btn btn-orange" style="margin-bottom: 20px;" onclick="recordAllStock()">💾 目前庫存記錄</button>
             
             <div id="inv-warning-section" style="display: none; background: #fff0f0; border: 2px solid #FF3B30; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
                 <h3 style="margin-top: 0; margin-bottom: 15px; color: #FF3B30; display: flex; align-items: center; gap: 5px;">
@@ -271,7 +271,7 @@
             <h3>帳單紀錄 (含明細)</h3>
             <div id="history-list"></div>
             <br>
-            <button class="btn btn-red" onclick="endOfDay()">執行日結 (歸零並產生統計)</button>
+            <button class="btn btn-red" onclick="endOfDay()">執行日結</button>
         </div>
     </div>
 
@@ -422,6 +422,7 @@
             }
         }
 
+        // 💡 庫存盤點邏輯更新 (將警示項目自原分類隱藏)
         function renderInventory() {
             const sections = { "吧台": "inv-bar-list", "食物": "inv-food-list", "酒": "inv-alcohol-list" };
             const warningList = document.getElementById('inv-warning-list');
@@ -454,17 +455,16 @@
                         </div>
                     `;
                     
-                    listContainer.innerHTML += itemHtml;
-
-                    // 💡 如果是警戒項目，同時複製一份到上方的專屬區塊
+                    // 💡 如果是警戒項目，只渲染在專屬區塊；否則渲染在下方分類
                     if (isWarning) {
                         hasWarning = true;
                         warningList.innerHTML += itemHtml;
+                    } else {
+                        listContainer.innerHTML += itemHtml;
                     }
                 });
             }
 
-            // 控制警戒區塊的顯示或隱藏
             warningSection.style.display = hasWarning ? 'block' : 'none';
         }
 
@@ -799,7 +799,7 @@
         }
 
         function endOfDay() {
-            if(confirm('確定要執行日結嗎？這將會清空今日「帳單紀錄」、「支出明細」與「訂位資料」！')) {
+            if(confirm('確定要執行日結嗎？這將會結算今日銷售統計，並清空「帳單紀錄」、「支出明細」與「訂位資料」！')) {
                 let totalRev = 0, itemCounts = {};
                 history.forEach(record => { totalRev += record.total; if(record.items) record.items.forEach(item => { if(!itemCounts[item.name]) itemCounts[item.name] = { count: 0, category: item.category }; itemCounts[item.name].count += item.qty; }); });
                 let totalExp = expenses.reduce((sum, exp) => sum + exp.amount, 0);
