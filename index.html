@@ -187,7 +187,7 @@
                     <p style="font-size: 13px; color: #666; margin-top: 5px; margin-bottom: 0;">低於警戒值會顯示紅色並自動置頂。</p>
                 </div>
             </div>
-            <button class="btn btn-orange" style="margin-bottom: 20px;" onclick="recordAllStock()">💾 記錄目前庫存</button>
+            <button class="btn btn-orange" style="margin-bottom: 20px;" onclick="recordAllStock()">💾 目前庫存記錄</button>
             
             <div id="inv-warning-section" style="display: none; background: #fff0f0; border: 2px solid #FF3B30; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
                 <h3 style="margin-top: 0; margin-bottom: 15px; color: #FF3B30; display: flex; align-items: center; gap: 5px;">
@@ -385,9 +385,10 @@
             "酒": ["蘭姆酒", "伏特加", "琴酒", "生啤酒", "威士忌", "君度", "米酒", "蘇打水", "通寧水", "蔓越莓", "柳橙汁", "蘋果汁", "芭樂汁", "貝里詩", "卡魯哇咖啡酒", "藍柑橘利口酒"]
         };
 
-        let menu = JSON.parse(localStorage.getItem('pos_menu_v6')) || defaultMenu;
+        // 💡 升級金鑰：pos_menu_v7、pos_tables_v2 保證清除舊有的破壞性記憶
+        let menu = JSON.parse(localStorage.getItem('pos_menu_v7')) || defaultMenu;
         
-        let tables = JSON.parse(localStorage.getItem('pos_tables')) || {};
+        let tables = JSON.parse(localStorage.getItem('pos_tables_v2')) || {};
         const tableNames = ['1', '2', '3', '4', '5', '吧檯', '沙發區'];
         tableNames.forEach(t => {
             if (!tables[t]) tables[t] = { pax: 0, cart: [], mergeNote: "" };
@@ -431,7 +432,6 @@
             }
         }
 
-        // 💡 新增：切換展開/收起功能
         function toggleInvCategory(listId, btnEl) {
             const list = document.getElementById(listId);
             const textSpan = btnEl.querySelector('span:last-child');
@@ -462,7 +462,6 @@
                     let warningText = isWarning ? '<span style="color:#FF3B30; font-size:12px; margin-left: 5px;">⚠️ 需補貨</span>' : '';
                     let lastRecord = data.lastDate ? `${data.lastDate} (${data.lastStock} ${data.unit})` : '無紀錄';
 
-                    // 💡 修改：提示詞變更為 "如:包、罐、個、瓶、份..."
                     let itemHtml = `
                         <div class="inv-item ${warningClass}">
                             <div class="inv-header">
@@ -581,6 +580,9 @@
 
         function loadTableData() {
             currentTable = document.getElementById('table-select').value;
+            // 💡 超級安全網：防止切換桌號時找不到資料而崩潰
+            if (!tables[currentTable]) tables[currentTable] = { pax: 0, cart: [], mergeNote: "" };
+            
             document.getElementById('pax-input').value = tables[currentTable].pax || '';
             document.getElementById('merge-note').value = tables[currentTable].mergeNote || ''; 
             document.getElementById('order-remark').value = ''; document.getElementById('checkout-discount').value = '0';
@@ -594,12 +596,14 @@
         }
 
         function saveTableData() {
+            if (!tables[currentTable]) tables[currentTable] = { pax: 0, cart: [], mergeNote: "" };
             tables[currentTable].pax = document.getElementById('pax-input').value;
             tables[currentTable].mergeNote = document.getElementById('merge-note').value; 
             saveData(); updateTableDisplay(); 
         }
 
         function addToCart(itemId) {
+            if (!tables[currentTable]) tables[currentTable] = { pax: 0, cart: [], mergeNote: "" };
             const item = menu.find(m => m.id === itemId), cart = tables[currentTable].cart;
             const unsent = cart.find(c => c.id === itemId && c.status === 'unsent');
             if(unsent) unsent.qty++; else cart.push({ ...item, qty: 1, status: 'unsent', checkoutSelected: true });
@@ -624,10 +628,19 @@
             const cart = tables[currentTable].cart, checkboxes = document.querySelectorAll('.item-checkout-cb');
             let selectedTotal = 0;
             checkboxes.forEach(cb => {
-                let idx = parseInt(cb.dataset.index); cart[idx].checkoutSelected = cb.checked;
+                let idx = parseInt(cb.dataset.index); 
+                cart[idx].checkoutSelected = cb.checked;
+                
+                // 💡 結帳數量記憶：讓下拉選單選擇的數量即時保存
+                let qtySelect = document.getElementById('checkout-qty-' + idx);
+                if (qtySelect) {
+                    cart[idx].checkoutQty = parseInt(qtySelect.value);
+                } else {
+                    cart[idx].checkoutQty = cart[idx].qty;
+                }
+
                 if (cb.checked) {
-                    let qtySelect = document.getElementById('checkout-qty-' + idx);
-                    selectedTotal += cart[idx].price * (qtySelect ? parseInt(qtySelect.value) : cart[idx].qty);
+                    selectedTotal += cart[idx].price * cart[idx].checkoutQty;
                 }
             });
             let discount = parseInt(document.getElementById('checkout-discount').value) || 0;
@@ -647,7 +660,10 @@
                 let qtySelectHtml = '';
                 if (item.qty > 1) {
                     qtySelectHtml = `<select id="checkout-qty-${index}" class="checkout-qty-select" onchange="updateCheckoutTotal()">`;
-                    for(let i = 1; i <= item.qty; i++) qtySelectHtml += `<option value="${i}" ${i === item.checkoutQty ? 'selected' : ''}>結 ${i}</option>`;
+                    for(let i = 1; i <= item.qty; i++) {
+                        let isSelected = item.checkoutQty ? (i === item.checkoutQty) : (i === item.qty);
+                        qtySelectHtml += `<option value="${i}" ${isSelected ? 'selected' : ''}>結 ${i}</option>`;
+                    }
                     qtySelectHtml += `</select>`;
                 }
                 list.innerHTML += `<div class="list-item"><div style="display:flex; align-items:center;"><input type="checkbox" class="item-checkout-cb" data-index="${index}" onchange="updateCheckoutTotal()" ${item.checkoutSelected!==false?'checked':''}><span>${item.name} x ${item.qty} ${badge}<br><small style="color:#666;">單價 $${item.price}</small></span></div><div style="display:flex; align-items:center;">${qtySelectHtml}${btn}</div></div>`;
@@ -663,6 +679,7 @@
         }
 
         function sendOrder() {
+            if (!tables[currentTable]) return;
             const cart = tables[currentTable].cart, unsent = cart.filter(item => item.status === 'unsent');
             if(unsent.length === 0) return alert('目前沒有新的餐點可以送出喔！');
             const remark = document.getElementById('order-remark').value, timeStr = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
@@ -714,6 +731,7 @@
         }
 
         function checkout(paymentMethod) {
+            if (!tables[currentTable]) return;
             const cart = tables[currentTable].cart; if(cart.length === 0) return alert('這桌是空的，無須結帳！');
             const checkboxes = document.querySelectorAll('.item-checkout-cb');
             let checkedIndices = []; checkboxes.forEach(cb => { if (cb.checked) checkedIndices.push(parseInt(cb.dataset.index)); });
@@ -736,6 +754,46 @@
             let dName = ['1','2','3','4','5'].includes(currentTable) ? `第 ${currentTable} 桌` : currentTable;
             if (!cart.length) { tables[currentTable] = { pax: 0, cart: [], mergeNote: "" }; kitchenQueue = kitchenQueue.filter(t => t.table !== currentTable); document.getElementById('merge-note').value = ''; document.getElementById('pax-input').value = '0'; }
             document.getElementById('checkout-discount').value = '0'; alert(`💰 結帳完成！實收：$${finalTotal}`); saveData(); loadTableData();
+        }
+
+        // 💡 修正 1：加強下拉選單代號綁定
+        function updateTableDisplay() {
+            const select = document.getElementById('table-select');
+            for (let i = 0; i < select.options.length; i++) {
+                let t = select.options[i].value;
+                if (!tables[t]) tables[t] = { pax: 0, cart: [], mergeNote: "" };
+                let cart = tables[t].cart || [];
+                
+                let cartTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                let status = '(空桌)';
+                
+                if (cartTotal > 0) {
+                    let allServed = cart.length > 0 && cart.every(item => item.status === 'served');
+                    if (allServed) {
+                        status = `(未結帳 $${cartTotal} - ✅已出餐)`;
+                    } else {
+                        status = `(未結帳 $${cartTotal})`;
+                    }
+                }
+                
+                let displayName = ['1','2','3','4','5'].includes(t) ? `第 ${t} 桌` : t;
+                let mergeTag = tables[t].mergeNote ? ` (併桌 ${tables[t].mergeNote})` : "";
+                
+                // 強制保持 value 不被改變
+                select.options[i].text = `${displayName}${mergeTag} ${status}`;
+                select.options[i].value = t;
+            }
+        }
+
+        // 💡 修正 2：加強「加入」按鈕防呆
+        function addFromSelect(selectId) {
+            const selectElement = document.getElementById(selectId);
+            const itemId = parseInt(selectElement.value);
+            if (!itemId) {
+                alert('⚠️ 請先點選您要加入的餐點或飲品！');
+                return; 
+            }
+            addToCart(itemId);
         }
 
         function addExpense() {
@@ -779,6 +837,12 @@
         function selectAllChartItems(s) { document.querySelectorAll('.chart-item-cb').forEach(cb => cb.checked = s); updateChart(); }
 
         function updateChart() {
+            // 防護：若離線無 Chart.js，則直接略過不報錯
+            if (typeof Chart === 'undefined') {
+                console.warn("Chart.js 未載入，請確認網路連線。");
+                return;
+            }
+
             let startStr = document.getElementById('chart-start-date').value, endStr = document.getElementById('chart-end-date').value; if(!startStr || !endStr) return;
             let start = new Date(startStr); start.setHours(0,0,0,0); let end = new Date(endStr); end.setHours(23,59,59,999);
             let checked = Array.from(document.querySelectorAll('.chart-item-cb:checked')).map(cb => cb.value);
@@ -839,8 +903,8 @@
         }
 
         function saveData() {
-            localStorage.setItem('pos_menu_v6', JSON.stringify(menu)); 
-            localStorage.setItem('pos_tables', JSON.stringify(tables));
+            localStorage.setItem('pos_menu_v7', JSON.stringify(menu)); 
+            localStorage.setItem('pos_tables_v2', JSON.stringify(tables));
             localStorage.setItem('pos_kitchen', JSON.stringify(kitchenQueue));
             localStorage.setItem('pos_history', JSON.stringify(history));
             localStorage.setItem('pos_expenses', JSON.stringify(expenses)); 
@@ -849,6 +913,7 @@
             localStorage.setItem('pos_inventory_data', JSON.stringify(inventoryData));
         }
 
+        // 啟動程式
         renderOrderView();
     </script>
 </body>
