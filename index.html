@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>簡易點餐與出餐系統</title>
+    <title>GreenBat點餐與出餐系統</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #007AFF; --bg: #F2F2F7; --text: #1C1C1E; }
@@ -60,14 +60,13 @@
         .inv-inputs input { margin: 2px 0 0 0; padding: 8px 5px; font-size: 15px; text-align: center; border-radius: 6px; border: 1px solid #ccc; }
         .inv-item.warning input.stock-input { color: #FF3B30; font-weight: bold; border-color: #FF3B30; }
 
-        /* 💡 隱藏所有 number 輸入框的上下按鈕 (Spinners) */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { 
             -webkit-appearance: none; 
             margin: 0; 
         }
         input[type=number] {
-            -moz-appearance: textfield; /* Firefox 隱藏箭頭 */
+            -moz-appearance: textfield;
         }
     </style>
 </head>
@@ -190,6 +189,14 @@
             </div>
             <button class="btn btn-orange" style="margin-bottom: 20px;" onclick="recordAllStock()">💾 將目前庫存記錄為「前次紀錄」</button>
             
+            <div id="inv-warning-section" style="display: none; background: #fff0f0; border: 2px solid #FF3B30; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+                <h3 style="margin-top: 0; margin-bottom: 15px; color: #FF3B30; display: flex; align-items: center; gap: 5px;">
+                    🚨 需補貨清單 <span style="font-size: 14px; font-weight: normal; color: #FF3B30;">(低於或等於警戒值)</span>
+                </h3>
+                <div id="inv-warning-list" style="display: flex; flex-direction: column; gap: 10px;">
+                    </div>
+            </div>
+
             <h3 style="color: #007AFF; border-bottom: 2px solid #007AFF; padding-bottom: 5px;">☕ 分類1─吧台</h3>
             <div id="inv-bar-list"></div>
 
@@ -382,7 +389,6 @@
         let expenses = JSON.parse(localStorage.getItem('pos_expenses')) || []; 
         let reservations = JSON.parse(localStorage.getItem('pos_reservations')) || []; 
         let dailyStats = JSON.parse(localStorage.getItem('pos_daily_stats')) || []; 
-        
         let inventoryData = JSON.parse(localStorage.getItem('pos_inventory_data')) || {};
         
         for (let cat in defaultInventory) {
@@ -418,6 +424,10 @@
 
         function renderInventory() {
             const sections = { "吧台": "inv-bar-list", "食物": "inv-food-list", "酒": "inv-alcohol-list" };
+            const warningList = document.getElementById('inv-warning-list');
+            const warningSection = document.getElementById('inv-warning-section');
+            warningList.innerHTML = '';
+            let hasWarning = false;
             
             for (let cat in defaultInventory) {
                 const listContainer = document.getElementById(sections[cat]);
@@ -427,14 +437,13 @@
                     let data = inventoryData[name];
                     let isWarning = data.threshold > 0 && data.stock <= data.threshold;
                     let warningClass = isWarning ? 'warning' : '';
-                    let warningText = isWarning ? '<span style="color:#FF3B30; font-size:12px;">⚠️ 需補貨</span>' : '';
+                    let warningText = isWarning ? '<span style="color:#FF3B30; font-size:12px; margin-left: 5px;">⚠️ 需補貨</span>' : '';
                     let lastRecord = data.lastDate ? `${data.lastDate} (${data.lastStock} ${data.unit})` : '無紀錄';
 
-                    // 💡 更新：移除 +/- 按鈕，使用 step="any" 允許小數點輸入
-                    listContainer.innerHTML += `
+                    let itemHtml = `
                         <div class="inv-item ${warningClass}">
                             <div class="inv-header">
-                                <span style="${isWarning ? 'color:#FF3B30;' : ''}">🔹 ${name} ${warningText}</span>
+                                <span style="${isWarning ? 'color:#FF3B30;' : ''}">🔹 ${name} <small style="color:#666;">(${cat})</small>${warningText}</span>
                                 <span style="font-size: 12px; color: #999; font-weight: normal;">前次: ${lastRecord}</span>
                             </div>
                             <div class="inv-inputs">
@@ -444,12 +453,22 @@
                             </div>
                         </div>
                     `;
+                    
+                    listContainer.innerHTML += itemHtml;
+
+                    // 💡 如果是警戒項目，同時複製一份到上方的專屬區塊
+                    if (isWarning) {
+                        hasWarning = true;
+                        warningList.innerHTML += itemHtml;
+                    }
                 });
             }
+
+            // 控制警戒區塊的顯示或隱藏
+            warningSection.style.display = hasWarning ? 'block' : 'none';
         }
 
         function updateInvData(name, field, value) {
-            // 💡 更新：使用 parseFloat 以支援小數點輸入
             if(field === 'stock' || field === 'threshold') {
                 value = parseFloat(value) || 0;
                 if(value < 0) value = 0;
