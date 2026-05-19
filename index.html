@@ -197,13 +197,22 @@
                     </div>
             </div>
 
-            <h3 style="color: #007AFF; border-bottom: 2px solid #007AFF; padding-bottom: 5px;">☕ 分類1─吧台</h3>
+            <h3 style="color: #007AFF; border-bottom: 2px solid #007AFF; padding-bottom: 5px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleInvCategory('inv-bar-list', this)">
+                <span>☕ 分類1─吧台</span>
+                <span style="font-size: 13px; color: #007AFF; background: #e5e5ea; padding: 4px 10px; border-radius: 15px;">收起 ▲</span>
+            </h3>
             <div id="inv-bar-list"></div>
 
-            <h3 style="color: #34C759; border-bottom: 2px solid #34C759; padding-bottom: 5px; margin-top: 25px;">🍱 分類2─食物</h3>
+            <h3 style="color: #34C759; border-bottom: 2px solid #34C759; padding-bottom: 5px; margin-top: 25px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleInvCategory('inv-food-list', this)">
+                <span>🍱 分類2─食物</span>
+                <span style="font-size: 13px; color: #34C759; background: #e5e5ea; padding: 4px 10px; border-radius: 15px;">收起 ▲</span>
+            </h3>
             <div id="inv-food-list"></div>
 
-            <h3 style="color: #FF9500; border-bottom: 2px solid #FF9500; padding-bottom: 5px; margin-top: 25px;">🍺 分類3─酒</h3>
+            <h3 style="color: #FF9500; border-bottom: 2px solid #FF9500; padding-bottom: 5px; margin-top: 25px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleInvCategory('inv-alcohol-list', this)">
+                <span>🍺 分類3─酒</span>
+                <span style="font-size: 13px; color: #FF9500; background: #e5e5ea; padding: 4px 10px; border-radius: 15px;">收起 ▲</span>
+            </h3>
             <div id="inv-alcohol-list"></div>
         </div>
     </div>
@@ -271,7 +280,7 @@
             <h3>帳單紀錄 (含明細)</h3>
             <div id="history-list"></div>
             <br>
-            <button class="btn btn-red" onclick="endOfDay()">執行日結</button>
+            <button class="btn btn-red" onclick="endOfDay()">執行日結 (歸零並產生統計)</button>
         </div>
     </div>
 
@@ -422,7 +431,19 @@
             }
         }
 
-        // 💡 庫存盤點邏輯更新 (將警示項目自原分類隱藏)
+        // 💡 新增：切換展開/收起功能
+        function toggleInvCategory(listId, btnEl) {
+            const list = document.getElementById(listId);
+            const textSpan = btnEl.querySelector('span:last-child');
+            if (list.style.display === 'none') {
+                list.style.display = 'block';
+                textSpan.innerText = '收起 ▲';
+            } else {
+                list.style.display = 'none';
+                textSpan.innerText = '展開 ▼';
+            }
+        }
+
         function renderInventory() {
             const sections = { "吧台": "inv-bar-list", "食物": "inv-food-list", "酒": "inv-alcohol-list" };
             const warningList = document.getElementById('inv-warning-list');
@@ -441,6 +462,7 @@
                     let warningText = isWarning ? '<span style="color:#FF3B30; font-size:12px; margin-left: 5px;">⚠️ 需補貨</span>' : '';
                     let lastRecord = data.lastDate ? `${data.lastDate} (${data.lastStock} ${data.unit})` : '無紀錄';
 
+                    // 💡 修改：提示詞變更為 "如:包、罐、個、瓶、份..."
                     let itemHtml = `
                         <div class="inv-item ${warningClass}">
                             <div class="inv-header">
@@ -455,7 +477,6 @@
                         </div>
                     `;
                     
-                    // 💡 如果是警戒項目，只渲染在專屬區塊；否則渲染在下方分類
                     if (isWarning) {
                         hasWarning = true;
                         warningList.innerHTML += itemHtml;
@@ -799,7 +820,7 @@
         }
 
         function endOfDay() {
-            if(confirm('確定要執行日結嗎？這將會結算今日銷售統計，並清空「帳單紀錄」、「支出明細」與「訂位資料」！')) {
+            if(confirm('確定要執行日結嗎？這將會清空今日「帳單紀錄」、「支出明細」與「訂位資料」！')) {
                 let totalRev = 0, itemCounts = {};
                 history.forEach(record => { totalRev += record.total; if(record.items) record.items.forEach(item => { if(!itemCounts[item.name]) itemCounts[item.name] = { count: 0, category: item.category }; itemCounts[item.name].count += item.qty; }); });
                 let totalExp = expenses.reduce((sum, exp) => sum + exp.amount, 0);
