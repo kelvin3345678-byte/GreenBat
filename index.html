@@ -448,7 +448,7 @@
                                 <span style="font-size: 12px; color: #999; font-weight: normal;">前次: ${lastRecord}</span>
                             </div>
                             <div class="inv-inputs">
-                                <div>單位 <input type="text" placeholder="如:包" value="${data.unit}" onchange="updateInvData('${name}', 'unit', this.value)"></div>
+                                <div>單位 <input type="text" placeholder="如:包、罐、個、瓶、份..." value="${data.unit}" onchange="updateInvData('${name}', 'unit', this.value)"></div>
                                 <div>警戒值 <input type="number" step="any" placeholder="0" value="${data.threshold}" onchange="updateInvData('${name}', 'threshold', this.value)"></div>
                                 <div>目前庫存 <input class="stock-input" type="number" step="any" placeholder="0" value="${data.stock}" onchange="updateInvData('${name}', 'stock', this.value)"></div>
                             </div>
